@@ -1,0 +1,10 @@
+17:00:28 **** Incremental Build of configuration ASC-Debug for project ASC-ILX Scratch ****
+make -j4 all 
+arm-none-eabi-size   ASC-ILX\ Scratch.elf 
+   text	   data	    bss	    dec	    hex	filename
+  97556	   1896	  14336	 113788	  1bc7c	ASC-ILX Scratch.elf
+Finished building: application.size.stdout
+ 
+
+17:00:30 Build Finished. 0 errors, 0 warnings. (took 1s.841ms)
+

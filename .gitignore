@@ -1,0 +1,13 @@
+*.o
+*.d
+*.su
+*.mk
+*.elf
+*.hex
+*.map
+*.list
+*.prefs
+ASC-Debug/
+Release/
+ASC Vault/
+ILX-Debug/

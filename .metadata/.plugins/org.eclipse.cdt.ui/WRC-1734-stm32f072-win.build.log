@@ -1,0 +1,7 @@
+16:47:11 **** Build of configuration Debug for project WRC-1734-stm32f072-win ****
+make all 
+makefile:78: *** unterminated variable reference.  Stop.
+"make all" terminated with exit code 2. Build might be incomplete.
+
+16:47:11 Build Failed. 1 errors, 0 warnings. (took 188ms)
+

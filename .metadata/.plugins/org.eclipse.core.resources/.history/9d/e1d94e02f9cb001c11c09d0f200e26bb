@@ -1,0 +1,3 @@
+Core/fifo.o: ../Core/fifo.c ../Core/fifo.h ../Core/memopt.h
+../Core/fifo.h:
+../Core/memopt.h:
