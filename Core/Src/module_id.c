@@ -32,7 +32,9 @@ typedef enum
 	MODULE_TYPE_1734_232	  = 0x00000011,
 	MODULE_TYPE_1734_485	  = 0x00001100,
 	MODULE_TYPE_1738_232	  = 0x00110000,
-	MODULE_TYPE_1738_485	  = 0x11000000
+	MODULE_TYPE_1738_485	  = 0x11000000,
+	MODULE_TYPE_ILX34_MBS232  = 0x00000111,
+	MODULE_TYPE_ILX34_MBS485  = 0x00001111
 } Module_Type;
 
 static Module_Type Module_Type_Sanitize (Module_Type value)
@@ -43,6 +45,8 @@ static Module_Type Module_Type_Sanitize (Module_Type value)
 	case MODULE_TYPE_1734_485:
 	case MODULE_TYPE_1738_232:
 	case MODULE_TYPE_1738_485:
+	case MODULE_TYPE_ILX34_MBS232:
+	case MODULE_TYPE_ILX34_MBS485:
 	case MODULE_TYPE_UNINITIALIZED:
 		return value;
 	default:
@@ -93,10 +97,10 @@ bool Module_ID_Initialized ()
 	return true;
 }
 
-/*
-	Read module ID from IO pins
-	Crashes upon failure
-*/
+/**
+ *	@brief  : Read module ID from IO pins Crashes upon failure
+ *	@retval : HAL Status
+ */
 static Module_Type Module_ID_Read_Pins ()
 {
 	Module_Type type = MODULE_TYPE_UNINITIALIZED;
@@ -112,6 +116,12 @@ static Module_Type Module_ID_Read_Pins ()
 
 	if (pin_id_1738_485 ())
 		type &= MODULE_TYPE_1738_485;
+
+	if (pin_id_34_232 ())
+		type &= MODULE_TYPE_ILX34_MBS232;
+
+	if (pin_id_34_485 ())
+		type &= MODULE_TYPE_ILX34_MBS485;
 
 	type = Module_Type_Sanitize (type);
 	assert_permitted_runtime_module_type (type, "read invalid module id from factory jumpers");
@@ -171,7 +181,7 @@ unsigned char minor_revision_mem = 1;
 unsigned int  vendor_id_mem		 = 1;
 
 const unsigned char id_1734_232_name_mem[] = "\x1A"
-											 "1734-232ASC/C 232 ASCII-T";  // Rick 5/4 added -R to indicated Recovered
+											 "1734-232ASC/C 232 ASCII-R";  // Rick 5/4 added -R to indicated Recovered
 const unsigned int	id_1734_232_product_type_mem   = 115;
 const unsigned int	id_1734_232_product_code_mem   = 110;
 const unsigned char id_1734_232_major_revision_mem = 4;
@@ -179,7 +189,7 @@ const unsigned char id_1734_232_minor_revision_mem = 4;
 const unsigned int	id_1734_232_vendor_id_mem	   = 1;
 
 const unsigned char id_1734_485_name_mem[] = "\x1A"
-											 "1734-485ASC/C 485 ASCII-T"; // Rick 5/4 added -R to indicated Recovered
+											 "1734-485ASC/C 485 ASCII-R"; // Rick 5/4 added -R to indicated Recovered
 const unsigned int	id_1734_485_product_type_mem   = 115;
 const unsigned int	id_1734_485_product_code_mem   = 133;
 const unsigned char id_1734_485_major_revision_mem = 4;
@@ -187,7 +197,7 @@ const unsigned char id_1734_485_minor_revision_mem = 4;
 const unsigned int	id_1734_485_vendor_id_mem	   = 1;
 
 const unsigned char id_1738_232_name_mem[] = "\x1B"
-											 "1738-232ASCM12 232 ASCII-T"; // Rick 5/4 added -R to indicated Recovered
+											 "1738-232ASCM12 232 ASCII-R"; // Rick 5/4 added -R to indicated Recovered
 const unsigned int	id_1738_232_product_type_mem   = 115;
 const unsigned int	id_1738_232_product_code_mem   = 129;
 const unsigned char id_1738_232_major_revision_mem = 4;
@@ -195,7 +205,7 @@ const unsigned char id_1738_232_minor_revision_mem = 4;
 const unsigned int	id_1738_232_vendor_id_mem	   = 1;
 
 const unsigned char id_1738_485_name_mem[] = "\x1B"
-											 "1738-485ASCM12 485 ASCII-T";  // Rick 5/4 added -R to indicated Recovered
+											 "1738-485ASCM12 485 ASCII-R";  // Rick 5/4 added -R to indicated Recovered
 const unsigned int	id_1738_485_product_type_mem   = 115;
 const unsigned int	id_1738_485_product_code_mem   = 159;
 const unsigned char id_1738_485_major_revision_mem = 4;

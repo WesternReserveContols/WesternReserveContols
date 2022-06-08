@@ -110,10 +110,10 @@ int32_t DSC_Writes (dsc_level_t level, const char *string)
 }
 
 // helper macros and data for integer printing
-const uint32_t pow10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
+const uint32_t POW10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
 #define GET_HEX_DIG(x, i) ((x >> (i * 4)) & 0xF)
 #define TO_HEX_CHAR(x)	  ((x <= 9) ? ('0' + x) : ('A' - 10 + x))
-#define GET_DEC_DIG(x, i) ((x / pow10[i]) % 10)
+#define GET_DEC_DIG(x, i) ((x / POW10[i]) % 10)
 #define TO_DEC_CHAR(x)	  ('0' + x)
 
 int32_t DSC_Write_UInt (dsc_level_t level, uint32_t integer, uint8_t hex)

@@ -15,11 +15,15 @@ extern bool mock_pin_id_1734_232;
 extern bool mock_pin_id_1734_485;
 extern bool mock_pin_id_1738_232;
 extern bool mock_pin_id_1738_485;
+extern bool mock_pin_id_34_232;
+extern bool mock_pin_id_34_485;
 void mock_pins_reset();
 bool pin_id_1734_232();
 bool pin_id_1734_485();
 bool pin_id_1738_232();
 bool pin_id_1738_485();
+bool pin_id_34_232();
+bool pin_id_34_485();
 
 
 void mock_flash_reset();
