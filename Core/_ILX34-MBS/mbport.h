@@ -5,17 +5,13 @@
  *      Author: 14407
  */
 
-#ifndef ILX34_MBS_MBPORT_H_
-#define ILX34_MBS_MBPORT_H_
-
-
 
 #include "fifo.h"
 #include "msg.h"
 #include "stdbool.h"
 
-#ifndef MBPORT_H
-#define MBPORT_H
+#ifndef _MBPORT_H
+#define _MBPORT_H
 
 #ifndef TRUE
 #define TRUE 1
@@ -116,6 +112,18 @@
 #define MBM_RESERVED_BIT_6 0x40    // reserved bit 6
 #define MBM_RESERVED_BIT_7 0x80    // reserved bit 7
 
+
+enum mb_status_enum_t
+{
+	READY_FOR_COMMAND =1,
+	WAITING_FOR_RESPONSE,
+	PROCESSING_COMMAND,
+	PROCESSING_RESPONSE,
+
+
+};
+
+
 typedef struct{
    unsigned char baudrate;
    unsigned char flowcontrol;
@@ -123,6 +131,9 @@ typedef struct{
    unsigned char Framing;
    unsigned char Parity;
    unsigned char status;
+   unsigned char Mode; // AP
+   unsigned char TransmitSize; //AP
+   unsigned char ReceiveSize; //AP
    FIFO_CONTEXT  RxFifo;
    FIFO_CONTEXT  TxFifo;
 }ASCIISTRUCT;
@@ -152,7 +163,8 @@ typedef struct
 bool           MB_Sys_Busy(void);
 unsigned char MB_Sys_err(void);	
 void          StartMbSend(void);
-bool           MBLoad(unsigned char xdata *src);
+//bool           MBLoad(unsigned char xdata *src); //AP
+int           MBLoad(unsigned char *src);
 unsigned char ComputeIOConsumeSize(void);
 unsigned char ComputeIOProduceSize(void);
 //void          MBPort_8ms_Timer(void);
@@ -160,14 +172,16 @@ extern void	  ModbusMain(void);
 
 
 /////these are read only, do not write to these ever.
-extern unsigned char xdata  produce_buffer[MAX_MODBUS_MESSAGE_SIZE];
+// extern unsigned char xdata produce_buffer[MAX_MODBUS_MESSAGE_SIZE]; //AP
+extern unsigned char xdata, produce_buffer[MAX_MODBUS_MESSAGE_SIZE];
 extern unsigned char produce_buffer_len;
 extern unsigned char MB_Status,MB_Exception;
+
 
 #define SOFT_RESET_ACTIVE 0xA5
 extern unsigned char SoftReset;
 
 
-#endif /* ILX34_MBS_MBPORT_H_ */
+#endif /*  _MBPORT_H_  ILX34_MBS_MBPORT_H_ */
 
 

@@ -2,8 +2,11 @@
 #include "mbport.h"
 
 #include "msg.h"
+#include "ee_adr.h"
+
 //#include "obj_def.h"
 //#include "EE_Adr.h"
+#include "dn_eeprm.h"
 #include "memopt.h"
 #include "dn_tmobj.h"
 #include "dn_cnobj.h"
@@ -38,16 +41,18 @@ uchar FloatSwap;
 // Device Net Input (DNI) Assembly defines for location of fields
 #define DNI_FAULT_STRT  0
 #define DNI_MOD_STATUS  0
-#define DNI_ERROR_  1
+#define DNI_ERROR_  	1
 #define DNI_RX_ID       2
 #define DNI_STATION_ID  3
-#define DNI_FUNC_   4
+#define DNI_FUNC_   	4
 #define DNI_ADDR_L      5
 #define DNI_ADDR_H      6
 #define DNI_QUANT_L     7  // same as count lo in spec
 #define DNI_QUANT_H     8  // same as count hi in spec
 #define DNI_BYTE_COUNT  9
-#define DNI_DATA_STRT  10
+#define DNI_DATA_STRT  	10
+#define DNI_ERROR_CODE  11
+#define DNI_FUNC_CODE 	12
 
 // 9/11/2013 DRC - Added defines for MB Messages recieved in ilx slave mode
 // these represent the location of information from the beginning, 0th location
@@ -76,7 +81,7 @@ uchar FloatSwap;
 extern unsigned char MaxRxSize;  // Max N bytes of data in Assy
                                  // 10/24/2013 DRC - This now also means Max Byte Count (2*max Int data size of an assembly)
 unsigned char MaxRxBufSize = 0;
-
+unsigned char FragMsg=FALSE; //Jignesh TODO
 //#define NO_MASTER  //debugging ONLY!
 extern uchar P_OutMsgBuffer[];  // store IO data to be produced here
 extern uchar P_InMsgBuffer[];
@@ -154,15 +159,17 @@ int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
 
-MODBUS_ATTRIB ModAttrib = {
+// MODBUS_ATTRIB ModAttrib = { // AP
+
+ASCIISTRUCT ModAttrib = {
    0,
    ASCII_MODE,
    1,
 };
-
-sint TxRx = P3 ^ 2;
-sint TXPIN = P3 ^ 0;
-sint RXPIN = P3 ^ 1;
+#define P3 2 //Jignesh
+signed int TxRx = P3 ^ 2; //Jignesh
+signed int TXPIN = P3 ^ 0; //Jignesh
+signed int RXPIN = P3 ^ 1; //Jignesh
 
 /* Modbus byte locations for Slave Mode input */
 #define MB_SLAVEDNETSTAT	0
@@ -181,7 +188,7 @@ typedef struct
 
 }DATA_PARITY;
 
-const DATA_PARITY  DataParity[9] =
+const DATA_PARITY  MBportDataParity[9] =
 {
    {7,NONE},  //7N2
    {7,EVEN},  //7E1
@@ -194,9 +201,9 @@ const DATA_PARITY  DataParity[9] =
    {8,ODD },  //7O2 - NOTE: needs the 9 int mode
 };
 
-unsigned int  BaudDiv[6] = {BAUD19,BAUD12,BAUD24,BAUD48,BAUD96,BAUD38};
-
-ASCII_ATTRIB Ascii_attrib = {
+unsigned int  MBportBaudDiv[6] = {BAUD19,BAUD12,BAUD24,BAUD48,BAUD96,BAUD38};
+//MODBUS_ATTRIB Ascii_attrib = { // AP
+ASCIISTRUCT Ascii_attrib = {
    0, //Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
    7, //data bits
    0,	//baud rate index to BaudDiv[]
@@ -225,7 +232,7 @@ unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
 unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
 unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
 
-void InitSerialIO(void)
+void MBport_InitSerialIO(void)
 {
    mb_timer = 0;
    mb_data_buffer_out_len = 0;
@@ -235,9 +242,9 @@ void InitSerialIO(void)
    /* set for 1 sec */
    mb_timeoutcounter = ModbusConfig.timeout;
    mb_messagesent = 0;
-   Ascii_attrib.DataBits = DataParity[Ascii_attrib.Framing].DataBits;
-   Ascii_attrib.Parity = DataParity[Ascii_attrib.Framing].Parity;
-
+   Ascii_attrib.DataBits = MBportDataParity[Ascii_attrib.Framing].DataBits;
+   Ascii_attrib.Parity = MBportDataParity[Ascii_attrib.Framing].Parity;
+#if 0
    TXPIN = 1;                     //setup async pins
    RXPIN = 1;
    ES=1;
@@ -249,9 +256,9 @@ void InitSerialIO(void)
    mb_data_buffer_len=0;			     //er-- experiment
    TI = 0;                        //xmit buffer empty
    BD = 1;                        //enable baudrate generator
-   SRELL = (BYTE) BaudDiv[Ascii_attrib.BaudRate];
-   SRELH = (BYTE) (BaudDiv[Ascii_attrib.BaudRate] >> 8);
-
+   SRELL = (BYTE) MBportBaudDiv[Ascii_attrib.BaudRate];
+   SRELH = (BYTE) (MBportBaudDiv[Ascii_attrib.BaudRate] >> 8);
+#endif //Jignesh to chnage for serial init
    // Calculate the MaxRxBufSize
    if (ModbusConfig.type == MB_MASTERMODE) {
       if (ModAttrib.Mode == ASCII_MODE) {
@@ -271,15 +278,17 @@ void InitSerialIO(void)
    }
    // end of calculating MaxRxBufSize
    if(ModAttrib.Mode == RTU_MODE) InitRtuTimeout();
-   MB_Status = READY_FOR_COMMAND;
+   MB_Status = 0; // Jignesh READY_FOR_COMMAND;
    MB_Exception = 0;
    TriggerCOS();
 }
 
 BYTE RecvChar(void)
 {
+
+#if 0 //Jignesh TODO add recevie char code fro STM32
    BYTE pb,chr;
-   chr = SBUF;
+   // Jignesh chr = SBUF;
 
    parityChkRslt = 0;
 
@@ -291,8 +300,8 @@ BYTE RecvChar(void)
       {
          // load accumulator with chr byte excluding the parity int to set the parity
          // of only the data in the PSW register 
-         ACC = (chr & 0x7F);                               
-         pb = PSW;                                         // get PSW with the (even) parity int in it
+         //Jignesh ACC = (chr & 0x7F);
+         //Jignesh pb = PSW;                                         // get PSW with the (even) parity int in it
          if(Ascii_attrib.Parity == ODD) pb=~pb;            // invert the PSW including the parity int to convert to ODD parity
          if(pb & 1)pb = 0x80;                              // if parity int set convert pb to match parity int for original chr
          else pb = 0;                                      // make it zero for parity int = 0
@@ -311,17 +320,19 @@ BYTE RecvChar(void)
       }
       else
       {
-         ACC=chr;                                       //generate parity
-         pb = PSW;                                         //get the whole register 
+         //Jignesh ACC=chr;                                       //generate parity
+         // Jignesh pb = PSW;                                         //get the whole register
          if(Ascii_attrib.Parity == ODD) pb=~pb;            //invert the parity for ODD
          if(pb & 1)pb = 0x04;                              //if parity set make it $04
          else pb = 0;                                      //make it zero
-         if(pb != (SCON & 0x04)) {
-            parityChkRslt = PARITY_ERROR;
-         }
+         //Jignesh if(pb != (SCON & 0x04)) {
+         //Jignesh   parityChkRslt = PARITY_ERROR;
+         //Jignesh }
       }
    }
    return(chr);
+#endif
+   return 0;
 }
 
 void XmitChar(BYTE chr)
@@ -330,39 +341,43 @@ void XmitChar(BYTE chr)
 
    if(Ascii_attrib.DataBits == 7)
    {
-      if(Ascii_attrib.Framing == FRAME_8N1) SBUF = chr;         //special case of 8N1  ILX-10
-      else if(Ascii_attrib.Parity == NONE) 
+      //Jignesh if(Ascii_attrib.Framing == FRAME_8N1) SBUF = chr;         //special case of 8N1  ILX-10
+      //Jignesh else if(Ascii_attrib.Parity == NONE)
 #ifdef RICK_SIM
-         SBUF = chr;
+         //Jignesh SBUF = chr;
 #else
-         SBUF = chr | 0x80;         //add 2nd stop int
+         //Jignesh SBUF = chr | 0x80;         //add 2nd stop int
 #endif
-      else
+      //Jignesh else
       {//get the EVEN parity
-         dt7 = chr & 0x7F;
+#if 0 //Jignesh
+    	 dt7 = chr & 0x7F;
          ACC = dt7;                                 //make sure int 7 is zero
          pb = PSW;											//get the whole register
          if(Ascii_attrib.Parity == ODD) pb=~pb;                      //invert the parity for ODD
          if(pb & 1) pb = 0x80;                             //convert to int 7
          else pb = 0;
          SBUF = chr | pb;                                  //put chr and parity together
+#endif //Jignesh
       }
    }
    else //in 8 bits mode
    {
       if(Ascii_attrib.Parity == NONE)
       {
-         TB8 = 1;	 //add 2nd stop int
-         SBUF = chr;//send whole character
+         //Jignesh TB8 = 1;	 //add 2nd stop int
+         //Jignesh SBUF = chr;//send whole character
       }
 	   else //in real 8 int mode
 	   {
-	      ACC = chr;                                                     //get the parity
+#if 0 //Jignesh
+		   ACC = chr;                                                     //get the parity
 	      pb = PSW;                                              //get the whole register
 	      if(Ascii_attrib.Parity == ODD) pb=~pb;                     //invert the parity for ODD
 	      if(pb & 1) TB8 = 1;                                        //this is parity bit
 	      else TB8 = 0;
 	      SBUF = chr;
+#endif //Jignesh
 	   }
 #ifdef RICK_SIM
          putchar(chr);
@@ -378,6 +393,7 @@ void MB_Rx_Interrupt(void);
 void MB_Tx_Interrupt(void);
 void InitSerialIO(void);
 
+#if 0
 void SerialI(void) interrupt	4
 {
    if (RI)
@@ -387,17 +403,18 @@ void SerialI(void) interrupt	4
    }
    if (TI) MB_Tx_Interrupt();
 }
+#endif
 
 //Application intterface functions needed for the group 2 allocate
 // ILX-8  This is where the Procuce and Consume conneciton size are set
 // This is size of PLC_Header plus the MB_TXRX_Size  
 unsigned char ComputeIOConsumeSize(void)
 {
-   return (Ascii_attrib.ReceiveSize); //jtm 02-28-2013
+   return 0; //Jignesh (Ascii_attrib.ReceiveSize); //jtm 02-28-2013
 }
 unsigned char ComputeIOProduceSize(void)
 {
-   return (Ascii_attrib.TransmitSize); //jtm 02-28-2013
+   return 0; //Jignesh (Ascii_attrib.TransmitSize); //jtm 02-28-2013
 }
 
 WORD UpdateCRC(BYTE mydata,WORD crc)
@@ -995,27 +1012,33 @@ const unsigned int RTU_Timeout[6] = {57740,0,4476,35006,48000,59700};
 
 void InitRtuTimeout(void) //called from InitSerialIO()
 {
-   TimerL = (BYTE)RTU_Timeout[Ascii_attrib.BaudRate];
-   TimerH = (BYTE)(RTU_Timeout[Ascii_attrib.BaudRate] >> 8);
+   //TimerL = (BYTE)RTU_Timeout[Ascii_attrib.BaudRate]; //Jignesh
+   //TimerH = (BYTE)(RTU_Timeout[Ascii_attrib.BaudRate] >> 8); //Jignesh
+   TimerL = (BYTE)RTU_Timeout[Ascii_attrib.baudrate];
+   TimerH = (BYTE)(RTU_Timeout[Ascii_attrib.baudrate] >> 8);
 }
 
 void UIObjectLedDrive(uchar ledbyte1, uchar ledbyte2);
 
 void MB_StartRtuTimeout(void)// a 3.5 CHARACTER timeout
 {
+#if 0 //Jignesh
    TL0 = TimerL;//load timer
    TH0 = TimerH;
    TR0 = 1;//start timer
    ET0 = 1;//enable Timer0 interrupt
+#endif
 }
 
 void MB_StopRtuTimeout(void)
 {
+#if 0 //Jignesh
    TR0 = 0;//stop timer
    ET0 = 0;//disable Timer0 interrupt
+#endif
 }
 
-void MB_Rtu_TimedOut(void) interrupt 1  // using 2                                     
+void MB_Rtu_TimedOut(void) //interrupt 1  // using 2
 {
    MB_StopRtuTimeout(); //stop the timer interrupt
    if (ModbusConfig.type == MB_MASTERMODE) {
@@ -1043,7 +1066,7 @@ unsigned char  * mb_data_ptr;
 
 void MB_Tx_Interrupt(void)
 {
-   TI=0;
+   //Jignesh TI=0;
    if(mb_data_buffer_out_len)
    {
       mb_data_buffer_out_len--;
@@ -1084,7 +1107,7 @@ static unsigned char rtucnt=0;
 
 unsigned char StIn,CrIn;
 unsigned char recChar,err;
-uchar RiCount = 0;
+unsigned char RiCount = 0;
 void UIObjectLEDRefresh(void);
 
 void MB_Rx_Interrupt(void)
@@ -1136,7 +1159,7 @@ void MB_Rx_Interrupt(void)
         ( ( ModbusConfig.type == MB_MASTERMODE )  && ( MB_Status != WAITING_FOR_RESPONSE ) )
       )
    {
-      RI=0;
+      //Jignesh RI=0;
       return;
    }
    MB_StopRtuTimeout();
@@ -1189,7 +1212,7 @@ void MB_Rx_Interrupt(void)
             }
             StIn = CrIn = FALSE;         //clear flags
             mb_data_buffer_len = 0;      //clear buffer
-            RI=0;
+            //Jignesh RI=0;
             return;				
          }
 
@@ -1204,7 +1227,7 @@ void MB_Rx_Interrupt(void)
             else {
                // if first character received is not the ASCII start character then assume
                // junk is on the line and exit without flagging an error or anything
-               RI=0;
+               //Jignesh RI=0;
                return;
             }
          }
@@ -1247,7 +1270,7 @@ void MB_Rx_Interrupt(void)
                   MB_Status = PROCESSING_COMMAND;
                }
                ProcessMbMessage=1;
-               RI=0;
+               //Jignesh RI=0;
                TriggerCOS();
                return;
             }
@@ -1260,7 +1283,7 @@ void MB_Rx_Interrupt(void)
                }
                StIn = CrIn = FALSE;         //clear flags
                mb_data_buffer_len = 0;      //clear buffer
-               RI=0;
+               //Jignesh RI=0;
                return;
             }
          }
@@ -1329,7 +1352,7 @@ void MB_Rx_Interrupt(void)
      ProcessMbMessage=1;
      TriggerCOS();
    }
-   RI=0;
+   //Jignesh RI=0;
 }
 
 int MBLoad(unsigned char  *src)
@@ -1360,7 +1383,7 @@ int MBLoad(unsigned char  *src)
       if ( FloatSwap ) {
          MB_Exception = FltSwap_Command_Flip( src, srclen, ModbusConfig.type );
          if ( MB_Exception ) {
-            mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
+            //Jignesh mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
             return 0;  // Return, If error do not continue to send message to MB device
          }
       }
@@ -1382,7 +1405,7 @@ int MBLoad(unsigned char  *src)
          if ( FloatSwap ) {
             MB_Exception = FltSwap_Response_Flip ( src, srclen, ModbusConfig.type );
             if ( MB_Exception ) {
-               mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
+               //Jignesh mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
                return 0;  // Return, If error do not continue to send message to MB device
             }
          }
@@ -1416,7 +1439,8 @@ int MBLoad(unsigned char  *src)
             // if statement skip pad bytes
             // in functions 1-4 in MB_SLAVEMODE
 
-            if ((ModbusConfig.type == MB_SLAVEMODE) && (function_ > 0) && (function_ < 5) && (indx > 1) && (indx < 6)) {
+            if (0) //Jignesh ((ModbusConfig.type == MB_SLAVEMODE) && (function_ > 0) && (function_ < 5) && (indx > 1) && (indx < 6))
+			{
                continue;
             }
             else
@@ -1444,7 +1468,8 @@ int MBLoad(unsigned char  *src)
          for( indx = 0; indx < srclen; indx++ )
          {
             byte =(*(src++));
-            if ((ModbusConfig.type == MB_SLAVEMODE) && (function_ > 0) && (function_ < 5) && (indx > 1) && (indx < 6)) {
+            if (0)//Jignesh ((ModbusConfig.type == MB_SLAVEMODE) && (function_ > 0) && (function_ < 5) && (indx > 1) && (indx < 6))
+			{
                continue;
             }
             else
@@ -1507,7 +1532,7 @@ void StartMbSend(void)
 **
 **  3-3-13   Rick Ales
 ***************************************************************************************************/
-extern int main(void);
+//extern int main(void);
 
 void WriteExceptionToQue(void)
 {
@@ -1682,7 +1707,7 @@ void SetFraming(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-     FragMsg=FALSE;
+	   	 //Jignesh FragMsg=FALSE;
 		 return;
 	 }
    else if(msg->buf[0]>8)
@@ -1699,15 +1724,15 @@ void GetBaudRate(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen = 1;
-   msg->buf[0]=Ascii_attrib.BaudRate;
+   msg->buf[0]=Ascii_attrib.baudrate;
 }
 
 void SetBaudRate(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-     FragMsg=FALSE;
-		 return;
+	   //Jignesh FragMsg = FALSE;
+	   return;
 	 }
 
    if(msg->buf[0]>5)
@@ -1715,7 +1740,7 @@ void SetBaudRate(MSG  * msg)
       g_status=INVALID_ATTRIBUTE_DATA;
       return;
    }
-   Ascii_attrib.BaudRate=msg->buf[0];
+   Ascii_attrib.baudrate=msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_BAUDRATE,msg->buf[0]);
    msg->buflen=0;
 }
@@ -1803,7 +1828,7 @@ void MB_SetType(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-     FragMsg=FALSE;
+	   	  //Jignesh  FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.type = msg->buf[0];
@@ -1815,7 +1840,7 @@ void MB_SetTimeout(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,4,4))
 	 {
-     FragMsg=FALSE;
+	   	 //Jignesh FragMsg=FALSE;
 		 return;
 	 }
    // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first  
@@ -1829,20 +1854,20 @@ void MB_SetTimeout(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR+1,msg->buf[0]);  // PLC LSB stored last in memory 
 	msg->buflen=0;
    MessageObjectFormatSuccessMessage();
-   FragMsg=FALSE;
+   //Jignesh FragMsg=FALSE;
 }
 
 void MB_SetSlaveID(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   	  FragMsg=FALSE;
 		 return;
 	 }
    //MSB
    ModbusConfig.slaveID = (unsigned int) msg->buf[0];
    EEPROMObjectWriteAndUpdate(MB_SLAVEID_NVRAM_ADDR,0);  //jtm 02-27-2013 added for 2 byte SlaveId (upper byte always 0)
-   //LSB
+   //LSB //TODO for 2 bytes
    EEPROMObjectWriteAndUpdate(MB_SLAVEID_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
@@ -1851,13 +1876,13 @@ void MB_SetCoil_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	    FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.Coil_StartAddr = (msg->buf[0] + (msg->buf[1] << 8));
    //MSB
    EEPROMObjectWriteAndUpdate(MB_COILSTART_NVRAM_ADDR,msg->buf[1]);
-   //LSB
+   //LSB //TODO 2 bytes in memory
    EEPROMObjectWriteAndUpdate(MB_COILSTART_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
@@ -1866,7 +1891,7 @@ void MB_SetCoil_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	    FragMsg=FALSE;
 		 return;
 	 }
 
@@ -1882,7 +1907,7 @@ void MB_SetDiscInput_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.DiscInput_StartAddr = (msg->buf[0] + (msg->buf[1] << 8));
@@ -1897,7 +1922,7 @@ void MB_SetDiscInput_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   	 FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.DiscInput_Count = (msg->buf[0] + (msg->buf[1] << 8));
@@ -1912,7 +1937,7 @@ void MB_SetInReg_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   	 FragMsg=FALSE;
 		 return;
 	 }
 
@@ -1928,7 +1953,7 @@ void MB_SetInReg_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   	   FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.InReg_Count = (msg->buf[0] +( msg->buf[1] << 8)); 
@@ -1943,7 +1968,7 @@ void MB_SetHoldReg_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	   	  FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.HoldReg_StartAddr = (msg->buf[0] + (msg->buf[1] << 8));
@@ -1958,14 +1983,14 @@ void MB_SetHoldReg_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
 	 {
-     FragMsg=FALSE;
+	    FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.HoldReg_Count = (msg->buf[0] + (msg->buf[1] << 8));
    //MSB
    EEPROMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR,msg->buf[1]);
    //LSB
-   EEPROMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
+   EEPRFragMsgOMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 } 
 
@@ -1974,7 +1999,7 @@ void Mb_FactoryDefaults(void)
    // default them and save to EEPROM
    ModAttrib.Mode = 0; 			  //ASCII mode
    Ascii_attrib.Framing = 0;		// 7 N 2
-   Ascii_attrib.BaudRate = 0; 	//19200
+   Ascii_attrib.baudrate = 0; 	//19200
    timeout_reload_value = 0;
    Ascii_attrib.ReceiveSize = 26;
    Ascii_attrib.TransmitSize = 30;
@@ -1993,7 +2018,7 @@ void Mb_FactoryDefaults(void)
    /* Now save to EEPROM */
    Write_EE_Byte(EE_SERIAL_CHARACTER_FORMAT, Ascii_attrib.Framing);
 
-   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii_attrib.BaudRate);
+   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii_attrib.baudrate);
    Write_EE_Byte(EE_MODBUSMODE_ADDR, ModAttrib.Mode);
    //MSB
    Write_EE_Byte(EE_TIMEOUT_LOW_ADDR,timeout_reload_value & 0xFF);
@@ -2007,7 +2032,7 @@ void Mb_FactoryDefaults(void)
    Write_EE_Byte(MB_TYPE_NVRAM_ADDR, ModbusConfig.type);
    Write_EE_Byte(MB_SLAVEID_NVRAM_ADDR, 0);                       // DRC 4/6/2015 MSB should always be 0 it only uses LSB
    Write_EE_Byte(MB_SLAVEID_NVRAM_ADDR+1, ModbusConfig.slaveID);  // DRC 4/6/2015 LSB is active that is set to default value
-   WDOG_PIN ^= 1;	
+   //Jignesh WDOG_PIN ^= 1;
 
    //MSB first
    Write_EE_Byte( MB_TIMEOUT_NVRAM_ADDR, ( ModbusConfig.timeout >> 8 ) );
@@ -2054,8 +2079,10 @@ void Mb_FactoryDefaults(void)
    //LSB last
    Write_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1,ModbusConfig.HoldReg_Count & 0xFF);
 
-   Write_EE_Byte(EE_Produce_Path_Id,0x65);  // decimal 101
-   Write_EE_Byte(EE_Consume_Path_Id,0x66);  // decimal 102
+   //Jignesh Write_EE_Byte(EE_Produce_Path_Id,0x65);  // decimal 101
+   //Jignesh Write_EE_Byte(EE_Consume_Path_Id,0x66);  // decimal 102
+   Write_EE_Byte(101,0x65);  // decimal 101
+   Write_EE_Byte(102,0x66);  // decimal 102
 }
 
 void InitMbParam(void)
@@ -2064,7 +2091,7 @@ void InitMbParam(void)
 
    Ascii_attrib.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
 
-   Ascii_attrib.BaudRate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
+   Ascii_attrib.baudrate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
 
    timeout_reload_value  = Read_EE_Byte(EE_TIMEOUT_HI_ADDR);
    timeout_reload_value = timeout_reload_value << 8;
@@ -2424,7 +2451,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
         case 4:
         idx = 0;
         mainloopassydata[idx++] = MB_Status;
-        mainloopassydata[idx++] = errorcode;
+        //Jignesh TODO mainloopassydata[idx++] = errorcode;
         if ( ( !error ) || ( error == FLOAT_WORD_SWAP_UNEVEN_WORD_COUNT_ERROR) ) {
             if( ++input_txid == 0 ) ++input_txid;
         }
@@ -2842,4 +2869,4 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
 
    return err;
 }
-
+// end of file

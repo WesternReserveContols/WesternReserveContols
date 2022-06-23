@@ -1,8 +1,9 @@
-/*
- * module_id.c
+/**
+ * @file module_id.c
+ * @author Jason
+ * @date 7 Oct 2020
+ * @brief This file containt module id related information.
  *
- *  Created on: Oct 7, 2020
- *      Author: Jason
  */
 
 /******************************************************************************
@@ -97,9 +98,8 @@ bool Module_ID_Initialized ()
 	return true;
 }
 
-/**
- *	@brief  : Read module ID from IO pins Crashes upon failure
- *	@retval : HAL Status
+/**	@brief  Read module ID from IO pins Crashes upon failure
+ *	@retval HAL Status
  */
 static Module_Type Module_ID_Read_Pins ()
 {

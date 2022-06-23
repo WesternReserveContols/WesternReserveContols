@@ -49,6 +49,11 @@
 #define EE_BL_PROD_CODE_LO 0x39 // brand label Device Type
 #define EE_BL_PROD_CODE_HI 0x3A
 
+//TODO to check for EEPROM
+#define EE_DNETBAUD_ADDR   0x3B
+#define EE_TIMEOUT_HI_ADDR 0x3C
+#define EE_TIMEOUT_LOW_ADDR 0x3D
+
 #define EE_END_COMMON_AREA 0x4F
 
 #ifndef EEPROM_SIZE
