@@ -7,6 +7,7 @@
 *.map
 *.list
 *.prefs
+*.settings
 ASC-Debug/
 Release/
 ASC Vault/

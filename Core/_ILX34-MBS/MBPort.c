@@ -3,7 +3,10 @@
 
 #include "msg.h"
 #include "ee_adr.h"
+#include "io_peripheral.h"
+#include "serial_hal.h"
 
+#include "fifo.h"
 //#include "obj_def.h"
 //#include "EE_Adr.h"
 #include "dn_eeprm.h"
@@ -100,6 +103,7 @@ int ComputeMasterRecLength(unsigned char  * src,unsigned char * l);
 unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len);
 
 void UIObjectLEDRefresh(void);
+void MBport_InitSerialIO(void);
 
 unsigned char xmitDataLen; 
 extern unsigned char   num_bytes_in_buf;
@@ -113,7 +117,7 @@ extern unsigned char g_addCode;
 extern void LoadIdleString(void);
 extern void LoadFaultString(void);
 extern void CNXN_SetTrigger(void);
-//extern ASCIISTRUCT Ascii;
+//extern ASCIISTRUCT Ascii_attrib;
 extern unsigned char TxEmpty;
 extern unsigned char TxInProgress;
 #ifndef BYTE
@@ -161,10 +165,10 @@ unsigned char parityChkRslt;
 
 // MODBUS_ATTRIB ModAttrib = { // AP
 
-ASCIISTRUCT ModAttrib = {
+MODBUS_ATTRIB ModAttrib = {
    0,
    ASCII_MODE,
-   1,
+//TODO   1,
 };
 #define P3 2 //Jignesh
 signed int TxRx = P3 ^ 2; //Jignesh
@@ -181,14 +185,8 @@ signed int RXPIN = P3 ^ 1; //Jignesh
 #define MB_SLAVEDNETREG		7
 #define MB_SLAVEDNETCOUNT	9
 
-typedef struct
-{
-   BYTE DataBits;
-   BYTE Parity;
 
-}DATA_PARITY;
-
-const DATA_PARITY  MBportDataParity[9] =
+const MOD_DATA_PARITY  MBportDataParity[9] =
 {
    {7,NONE},  //7N2
    {7,EVEN},  //7E1
@@ -200,19 +198,20 @@ const DATA_PARITY  MBportDataParity[9] =
    {8,EVEN},  //7E2 - NOTE: needs the 9 int mode
    {8,ODD },  //7O2 - NOTE: needs the 9 int mode
 };
-
-unsigned int  MBportBaudDiv[6] = {BAUD19,BAUD12,BAUD24,BAUD48,BAUD96,BAUD38};
 //MODBUS_ATTRIB Ascii_attrib = { // AP
-ASCIISTRUCT Ascii_attrib = {
+MOD_ASCIISTRUCT Ascii_attrib = {
    0, //Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
    7, //data bits
    0,	//baud rate index to BaudDiv[]
   10,	//delimiter
    0,	//parity 0=NONE / 1 = ODD / 2 = EVEN
    0,	//BlockSize
-   0,	//Mode
-   //                       0    //Framing
+	NULL, // FIFO_CONTEXT RxFifo
+	NULL  // FIFO_CONTEXT	TxFifo
 };
+
+unsigned int  MBportBaudDiv[6] = {BAUD19,BAUD12,BAUD24,BAUD48,BAUD96,BAUD38};
+
 
 /*------------------------------------------------*/
 BYTE recieve_status;//=0;
@@ -226,12 +225,32 @@ uchar CheckLimitParameters(unsigned char  *buf, unsigned char);
 
 extern unsigned char mainloopassydata[BYTES_OF_SER_DATA+6];
 extern unsigned char size_of_mainloopassydata;
+extern unsigned int fifo_used_mem;
 char track=0;
 
 unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
 unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
 unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
 
+void MBport_RestoreSerialFromEE (void)
+{
+	Ascii_attrib.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
+	Ascii_attrib.baudrate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
+	MBport_InitSerialIO ();
+}
+void MBport_SHWInit (void)
+{
+	FIFO_INIT fi;
+#ifdef GMM
+	fifo_used_mem = 0; // maybe this can be removed later
+#endif				   // GMM
+	fi.Max_Number_of_Items = RX_FIFO_SIZE;
+	Ascii_attrib.RxFifo		   = FifoInit (&fi);
+	fi.Max_Number_of_Items = TX_FIFO_SIZE;
+	Ascii_attrib.TxFifo		   = FifoInit (&fi);
+	// set up the port for action
+	MBport_RestoreSerialFromEE ();
+}
 void MBport_InitSerialIO(void)
 {
    mb_timer = 0;
@@ -244,28 +263,16 @@ void MBport_InitSerialIO(void)
    mb_messagesent = 0;
    Ascii_attrib.DataBits = MBportDataParity[Ascii_attrib.Framing].DataBits;
    Ascii_attrib.Parity = MBportDataParity[Ascii_attrib.Framing].Parity;
-#if 0
-   TXPIN = 1;                     //setup async pins
-   RXPIN = 1;
-   ES=1;
    TxRx = TxRx_RECV;              //rs485 TX/RX to receive
-   if(Ascii_attrib.DataBits == 7) SM0 = 0;
-   else SM0 = 1;
-   SM1 = 1;
-   REN = 1;                       //enable receive mode
    mb_data_buffer_len=0;			     //er-- experiment
-   TI = 0;                        //xmit buffer empty
-   BD = 1;                        //enable baudrate generator
-   SRELL = (BYTE) MBportBaudDiv[Ascii_attrib.BaudRate];
-   SRELH = (BYTE) (MBportBaudDiv[Ascii_attrib.BaudRate] >> 8);
-#endif //Jignesh to chnage for serial init
+
    // Calculate the MaxRxBufSize
    if (ModbusConfig.type == MB_MASTERMODE) {
       if (ModAttrib.Mode == ASCII_MODE) {
          MaxRxBufSize = MaxRxSize * 2 + 11;
       }
       else { // ModAttrib.Mode == RTU_MODE
-         MaxRxBufSize = MaxRxSize + 5;
+    	   MaxRxBufSize = MaxRxSize + 5;
       }
    }
    else { // ModbusConfig.type == MB_SLAVEMODE
@@ -278,9 +285,17 @@ void MBport_InitSerialIO(void)
    }
    // end of calculating MaxRxBufSize
    if(ModAttrib.Mode == RTU_MODE) InitRtuTimeout();
-   MB_Status = 0; // Jignesh READY_FOR_COMMAND;
+   MB_Status = READY_FOR_COMMAND;
    MB_Exception = 0;
-   TriggerCOS();
+	//
+	// rs485 TX/RX to receive
+	IO_SET_SerialTxRx (TxRx_RECV);
+	//
+	// Init our hardware.
+	SH_Set_Parameters ();
+	SH_Init ();
+
+	TriggerCOS();
 }
 
 BYTE RecvChar(void)
@@ -337,6 +352,10 @@ BYTE RecvChar(void)
 
 void XmitChar(BYTE chr)
 {
+
+	SH_Put_Char(chr);
+
+#if 0 //Jigs
    BYTE pb, dt7;
 
    if(Ascii_attrib.DataBits == 7)
@@ -383,6 +402,7 @@ void XmitChar(BYTE chr)
          putchar(chr);
 #endif
    }
+#endif // jigs
 }
 
 #define BUFFER_OVERFLOW_ERR_BIT	1
@@ -391,7 +411,6 @@ void XmitChar(BYTE chr)
 unsigned char next_recieve_status; //=0;
 void MB_Rx_Interrupt(void);
 void MB_Tx_Interrupt(void);
-void InitSerialIO(void);
 
 #if 0
 void SerialI(void) interrupt	4
@@ -654,7 +673,7 @@ void Word_Flip(unsigned char  * src)
 void CommandFlip(unsigned char  *mb_msg)
 {
    unsigned char i;//, i2;
-   unsigned char bytecnt;
+   //unsigned char bytecnt;
    switch(*(mb_msg+1))
    {
    case 1:
@@ -670,7 +689,7 @@ void CommandFlip(unsigned char  *mb_msg)
       Word_Flip(mb_msg+2);
       Word_Flip(mb_msg+4);
 
-      bytecnt = *( mb_msg + 6 );  // get Byte Count
+      //bytecnt = *( mb_msg + 6 );  // get Byte Count
       break;
    case 16:
       Word_Flip(mb_msg+2);
@@ -1106,7 +1125,8 @@ static unsigned char rtucnt=0;
 #endif
 
 unsigned char StIn,CrIn;
-unsigned char recChar,err;
+unsigned char err;
+char recChar;
 unsigned char RiCount = 0;
 void UIObjectLEDRefresh(void);
 
@@ -1122,7 +1142,8 @@ void MB_Rx_Interrupt(void)
       MB_Exception = 0;
    }
 
-   recChar = RecvChar();
+   //recChar = RecvChar();
+   SH_Get_Char_ISR (&recChar);
 
    if ( parityChkRslt == PARITY_ERROR ) {
       MB_Exception = PARITY_ERROR;
@@ -1660,14 +1681,16 @@ void GetReceiveSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii_attrib.ReceiveSize;
+   //Jigs msg->buf[0]=Ascii_attrib.ReceiveSize;
+   msg->buf[0]= Ascii_attrib.RxFifo->Number_of_Items;
 }
 
 void GetTransmitSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii_attrib.TransmitSize;
+   //Jigs msg->buf[0]=Ascii_attrib.TransmitSize;
+   msg->buf[0]=Ascii_attrib.TxFifo->Number_of_Items;
 }
 
 void SetTransmitSize(MSG  * msg)
@@ -1677,9 +1700,10 @@ void SetTransmitSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   Ascii_attrib.TransmitSize=msg->buf[0];  //jtm 02-27-2013
+   //TODO Ascii_attrib.TransmitSize=msg->buf[0];  //jtm 02-27-2013
+   Ascii_attrib.TxFifo->Number_of_Items=msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_XMITBUFFER_ADDR,msg->buf[0]);
-   //InitSerialIO();
+    MBport_InitSerialIO();
    return;
 }
 
@@ -1690,9 +1714,10 @@ void SetReceiveSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   Ascii_attrib.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
+   //Ascii_attrib.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
+   Ascii_attrib.RxFifo->Number_of_Items=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_RECBUFFER_ADDR,msg->buf[0]);
-   //InitSerialIO();
+   MBport_InitSerialIO();
    return;
 }
 
@@ -1990,7 +2015,8 @@ void MB_SetHoldReg_Count(MSG  * msg)
    //MSB
    EEPROMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR,msg->buf[1]);
    //LSB
-   EEPRFragMsgOMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
+   EEPROMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
+   //EEPRFragMsgOMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 } 
 
@@ -2001,8 +2027,8 @@ void Mb_FactoryDefaults(void)
    Ascii_attrib.Framing = 0;		// 7 N 2
    Ascii_attrib.baudrate = 0; 	//19200
    timeout_reload_value = 0;
-   Ascii_attrib.ReceiveSize = 26;
-   Ascii_attrib.TransmitSize = 30;
+   Ascii_attrib.RxFifo->Number_of_Items  = 26;
+   Ascii_attrib.TxFifo->Number_of_Items  = 30;
    DeviceNetObjectRAM.baudrate = 3;   //DRC 3/3/2015 set from 0 to 3 to match cstparam.c custParamInit()
    ModbusConfig.type =  MB_MASTERMODE;
    ModbusConfig.timeout = 2000;
@@ -2026,8 +2052,8 @@ void Mb_FactoryDefaults(void)
    Write_EE_Byte(EE_TIMEOUT_HI_ADDR,timeout_reload_value >> 8);
    //	Write_EE_Byte(EE_FAULTACT_ADDR, FaultAction);
    //	Write_EE_Byte(EE_IDLEACT_ADDR, IdleAction);
-   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TransmitSize);
-   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.ReceiveSize);
+   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TxFifo->Number_of_Items);
+   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.RxFifo->Number_of_Items);
    Write_EE_Byte(EE_DNETBAUD_ADDR, DeviceNetObjectRAM.baudrate);  // DRC 3/4/2015 should this be NVS_BAUD_RATE ?
    Write_EE_Byte(MB_TYPE_NVRAM_ADDR, ModbusConfig.type);
    Write_EE_Byte(MB_SLAVEID_NVRAM_ADDR, 0);                       // DRC 4/6/2015 MSB should always be 0 it only uses LSB
@@ -2097,8 +2123,8 @@ void InitMbParam(void)
    timeout_reload_value = timeout_reload_value << 8;
    timeout_reload_value += Read_EE_Byte(EE_TIMEOUT_LOW_ADDR); 
 
-   Ascii_attrib.ReceiveSize= Read_EE_Byte(EE_RECBUFFER_ADDR);
-   Ascii_attrib.TransmitSize= Read_EE_Byte(EE_XMITBUFFER_ADDR);
+   Ascii_attrib.RxFifo->Number_of_Items = Read_EE_Byte(EE_RECBUFFER_ADDR);
+   Ascii_attrib.TxFifo->Number_of_Items = Read_EE_Byte(EE_XMITBUFFER_ADDR);
 
    ModbusConfig.type = Read_EE_Byte(MB_TYPE_NVRAM_ADDR);
 
@@ -2176,9 +2202,10 @@ void ModbusMain(void)
 {
    unsigned char  *to=mb_data_buffer_out;
    unsigned char byte;
-   BYTE inidx,outidx,idx;
-   BYTE lrc;
-   BYTE bytestr[3];
+   //BYTE inidx,outidx,idx;
+   BYTE idx;
+   //BYTE lrc;
+   //BYTE bytestr[3] ={0};
    WORD crc;
    unsigned char checksum_Status = 0;
 
@@ -2253,8 +2280,10 @@ void ModbusMain(void)
 
    if(ProcessMbMessage)  // ProcessMbMessage is set only when a MB message is received
    {
-      bytestr[2] = 0;
-      outidx = inidx = lrc = 0;
+      //bytestr[2] = 0;
+      //inidx = lrc = 0;
+      //lrc = 0;
+      //outidx = inidx = lrc = 0;
       StopTimeout();    //Immediatly Disable the timeout.
       if (!ProcessMbMessage) return;     //if we have timed out, return.  We may have already notified the poll response of a timeout.
       // Verify the response message in the buffer.
@@ -2429,7 +2458,7 @@ unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len)
 unsigned char MB_LoadProduceBuffer(unsigned char error)
 {
    int i,bufcount;
-   BYTE errorcode;
+   BYTE errorcode =0;
    unsigned char idx,cnt;
 
    error = error;
@@ -2622,7 +2651,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
    }
 
-   for ( i = size_of_mainloopassydata; i < Ascii_attrib.TransmitSize; i++ )
+   for ( i = size_of_mainloopassydata; i < Ascii_attrib.TxFifo->Number_of_Items; i++ )
    {
       mainloopassydata[i] = 0x00;
    }	

@@ -6,7 +6,7 @@
 //
 //             Copyright (c) 1999 Allen-Bradley Co.
 //***********************************************************************
-#include "c505c.h"
+//#include "c505c.h"
 #include "std.h"
 
 #define ENABLE_LINE_CLASS_LO 0x12
