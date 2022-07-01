@@ -16,11 +16,15 @@
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
-
+#ifdef SIM_CONSUME
+#include "dn_msgob.h"
+#endif
 #include <unistd.h>
 
 static Context_t *can_context = 0;
-
+#ifdef SIM_CONSUME
+extern uchar	AppObjectInitialized;
+#endif
 void cp_transmit_in_progress (void);
 
 void Timer_Thread_Yield (void)
@@ -55,6 +59,9 @@ bool period_elapsed (void)
 	return false;
 }
 
+#ifdef SIM_CONSUME
+extern void MessageObjectHandleRxPoll (void);
+#endif
 void Thread_Timer (void *argument)
 {
 	assert (argument);
@@ -68,6 +75,7 @@ void Thread_Timer (void *argument)
 
 	while (1)
 	{
+
 		// Wait for notification from main thread that we can run.
 		// Indefinite wait, and binary semaphone
 		ulTaskNotifyTake (pdTRUE, portMAX_DELAY);
@@ -83,6 +91,18 @@ void Thread_Timer (void *argument)
 			TimerObjectISR ();
 		}
 
+#ifdef SIM_CONSUME
+		static int temp = 0;
+
+		if (temp > 50000)
+			temp = 0;
+
+		if ((++temp == 50000) && (AppObjectInitialized))
+		{
+			temp = 0;
+			MessageObjectHandleRxPoll ();
+		}
+#endif
 		CP_Hardware_Handler ();
 
 		CP_Software_Handler ();

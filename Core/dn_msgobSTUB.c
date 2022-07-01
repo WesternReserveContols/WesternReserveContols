@@ -1799,14 +1799,16 @@ void MessageObjectHandleStatus (void)
 
 void Stub_Fill(uchar * str, uchar msg_len)
 {
-	static uchar trans_id = 0;
-	char buf[] = "abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl"; // temp data to be sent on serial
+	static uchar trans_id = 1;
+	char buf[] = "123456789 ABCDEFGHIJ VVVVVVVVVVV abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl"; // temp data to be sent on serial
 	str[0] = 0; // RX byte for handshaking
 	str[1] = trans_id++; // to change transaction id
 	str[2] = 0; //reserve byte
 	str[3] = msg_len; // length for short string only single byte
+	if (trans_id % 20 == 0)
+		trans_id = 1;
+	xdata_memcpy (&(str[4]), &buf[trans_id], msg_len);
 
-	xdata_memcpy (&(str[4]), buf, msg_len);
 }
 
 void MessageObjectHandleRxPoll (void)
@@ -1818,13 +1820,13 @@ void MessageObjectHandleRxPoll (void)
 	unsigned char ubStatus_size; // used for 2 purposes
 	BOOL		  produce_data;
 
+#ifdef SIM_CONSUME    // this is the Consumer Stub
+
 #define ARRAY_MSG 			1
 #define SHORT_STRING_MSG 	2
 #define STRING_MSG 			3
 
-#ifdef SIM_CONSUME    // this is the Consumer Stub
-
-	uchar msg_type = SHORT_STRING_MSG;
+	uchar msg_type = STRING_MSG;
     if(TRUE)  // Has CM_PEENDING
 	{
 		if(TRUE) // Has CNXN_ESTABLISHED

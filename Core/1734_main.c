@@ -117,6 +117,12 @@ SOFT_RESET:
 
 	KICK_WDOG ();
 
+
+#ifdef SIM_CONSUME
+	InitApplicationObjects ();
+	AppObjectInitialized = TRUE;
+#endif
+
 	// wait in while loop to autobaud and for EnableIn to be enabled
 	while (ABAUD_ENABLED == DeviceNetObjectRAM.bAutoBaud
 		   || (FilterBusEnInPin != 0)) // don't send dupmac request until bus_en goes low
@@ -136,8 +142,10 @@ SOFT_RESET:
 	/*
 	// Initialize application objects
 	*/
+#ifndef SIM_CONSUME
 	InitApplicationObjects ();
 	AppObjectInitialized = TRUE;
+#endif
 
 DO_DUPMACS:
 	if (DUPLICATEMACFAIL != UIObjectRAM.cHealthState)
