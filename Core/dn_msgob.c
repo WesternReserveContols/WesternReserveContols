@@ -59,7 +59,9 @@ MessageObjectFragObj CurrFragObj; // some day there will be one of these for
 #define CONST_ZERO	 0x00	   // pad byte value that's always 0
 
 static uchar CntrlByteSave; // stores the last control byte value
+#ifndef SIM_CONSUME
 static uchar Exp_Len;		// expected length - based on len bytes in msg
+#endif
 static uchar GMM_Frag_State;
 static bool	 GMMFragError;
 
@@ -78,7 +80,9 @@ static uchar OutLen1Indx;
 void		  GMM_ser_data_rcvd (void);
 void		  GMM_set_msg_pointers (void);
 unsigned char local_status_byte (void);
+#ifndef SIM_CONSUME
 static void	  idle_w_frag_error (void);
+#endif
 
 bool SwapHdrBytes;
 
@@ -188,6 +192,7 @@ unsigned char local_status_byte (void)
 	return (tempb);
 }
 
+#ifndef SIM_CONSUME
 // this was being set in enough places to warrant its own routine.
 static void idle_w_frag_error (void)
 {
@@ -198,6 +203,7 @@ static void idle_w_frag_error (void)
 
 	GMMFragError = 1; // set the frag error bit in the status byte
 }
+#endif
 #endif // GMM
 
 extern BOOL COSACKRcvd;
@@ -1814,10 +1820,15 @@ void Stub_Fill(uchar * str, uchar msg_len)
 void MessageObjectHandleRxPoll (void)
 {
 #ifdef FCL
-	uchar frag_cnt, consume_poll_data;
+#ifndef SIM_CONSUME
+	uchar frag_cnt;
+#endif
+	uchar consume_poll_data;
 #endif // FCL
 
+#ifndef SIM_CONSUME
 	unsigned char ubStatus_size; // used for 2 purposes
+#endif
 	BOOL		  produce_data;
 
 #ifdef SIM_CONSUME    // this is the Consumer Stub
@@ -2500,4 +2511,3 @@ void MessageObjectHandleTxPoll (void)
 	}
 	CM_MCR0_Clear_INTPND (XMIT_POLL_MESSAGE_OBJECT);
 }
-

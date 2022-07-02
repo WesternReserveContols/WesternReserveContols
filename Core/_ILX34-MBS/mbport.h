@@ -125,24 +125,6 @@ enum mb_status_enum_t
 
 typedef struct
 {
-	unsigned char DataBits;
-	unsigned char Parity;
-} MOD_DATA_PARITY;
-
-typedef struct
-{
-	unsigned char baudrate;
-	unsigned char flowcontrol;
-	unsigned char DataBits;
-	unsigned char Framing;
-	unsigned char Parity;
-	unsigned char status;
-	FIFO_CONTEXT  RxFifo;
-	FIFO_CONTEXT  TxFifo;
-} MOD_ASCIISTRUCT;
-
-typedef struct
-{
 	BYTE enable;
 	BYTE Mode;
 
@@ -170,8 +152,6 @@ typedef struct
 
 #define ASCII_MODE_INTER_CHAR_TO_INTERVAL  1000    // millisec
 
-// ascii parameters and FIFO buffers.
-extern MOD_ASCIISTRUCT Ascii_attrib;
 
 bool           MB_Sys_Busy(void);
 unsigned char MB_Sys_err(void);	

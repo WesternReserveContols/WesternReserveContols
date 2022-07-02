@@ -7,12 +7,11 @@
 #include "bsp_main.h"
 #include "dsc.h"
 #include "serial_hal.h"
-#include "ascii.h"
-#include "_ILX34-MBS/mbport.h"
+#include "serial_config.h"
 
 /////////////////////////////
 // Variables
-extern MOD_ASCIISTRUCT Ascii_attrib;
+
 // UART Handle Variable
 //  This is used by this module and the ISR to address the UART Registers
 UART_HandleTypeDef huart_main = { USART1 };
@@ -30,7 +29,6 @@ static uint32_t sh_parity	   = UART_PARITY_NONE;
 
 static void Serial_RX_ISR (void);
 static void Serial_TX_ISR (void);
-void MBport_Serial_RX_ISR (void);
 
 // init function
 serial_status SH_Init (void)
@@ -261,8 +259,7 @@ void SH_IRQ (void)
 		/* UART in mode Receiver -------------------------------------------------*/
 		if (((isrflags & USART_ISR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
 		{
-			// jigs Serial_RX_ISR ();
-			MBport_Serial_RX_ISR();
+			Serial_RX_ISR ();
 			return;
 		}
 	}
@@ -387,37 +384,6 @@ serial_status SH_Get_Char_ISR (char *c)
 	//
 	return SER_Success;
 }
-
-// Taken from serial recieve function
-// Simply get char and push to fifo if possible
-void MBport_Serial_RX_ISR (void)
-{
-	char c = 0;
-
-	if (SH_Get_Char_ISR (&c) != SER_Success)
-	{
-		// nothing to get
-		DSC_Writes (DSC_LEVEL_INFO, "Get Char empty in RX ISR\r\n");
-	}
-	//else if (Ascii_attrib.RxFifo == NULL)
-	{
-		// if application enabled Ser port before init fifo
-		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Access in ISR before init!", DEBUG_STOP);
-		return;
-	}
-	//else if (!FifoPush (Ascii_attrib.RxFifo, &c))
-	{
-		// report fifo error
-		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Overflow", DEBUG_CONTINUE);
-		Ascii_attrib.status |= RX_FIFO_OVERFLOW;
-	}
-
-	// TEST ****
-	// DSC_Write (DSC_LEVEL_INFO, (uint8_t *)&c, 1);
-	// SH_Put_Char (c);
-	// TEST ****
-}
-
 
 // Taken from serial recieve function
 // Simply get char and push to fifo if possible

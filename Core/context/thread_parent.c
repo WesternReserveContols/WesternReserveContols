@@ -9,7 +9,7 @@
 #include "dsc.h"
 #include "app_main.h"
 
-void main_1734 (void);
+void main_serial (void);
 void yield_thread (void);
 
 static Context_t *myContext;
@@ -26,7 +26,7 @@ void Thread_Parent (void *argument)
 
 	while (1)
 	{
-		main_1734 ();
+		main_serial ();
 	}
 }
 

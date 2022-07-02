@@ -50,7 +50,7 @@ static void COS_Code (void);
 //***********************************************************************/
 void STARTUP1 (void);
 
-void main_1734 (void)
+void main_serial (void)
 {
 SOFT_RESET:
 

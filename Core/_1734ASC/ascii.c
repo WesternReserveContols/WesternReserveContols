@@ -24,7 +24,7 @@
 #include "fifo.h"
 #include "dn_def.h"
 #include <stdlib.h>
-#include "ascii.h"
+#include "serial_config.h"
 #include "serial_hal.h"
 
 unsigned char TxEmpty, TxInProgress;

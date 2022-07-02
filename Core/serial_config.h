@@ -1,15 +1,15 @@
 /*
- * ascii.h
+ * serial_config.h
  *
  *  Created on: Feb 14, 2020
- *      Author: wrc
+ *      Author: WRC
  *
  *      Migrated many things from ascii.c here, as there was no header before
  *      These definitions must be accessible to at least the serial hardware interface
  */
 
-#ifndef APPLICATION_ASCII_H_
-#define APPLICATION_ASCII_H_
+#ifndef SERIAL_CONFIG_H
+#define SERIAL_CONFIG_H
 
 #include "fifo.h"
 
@@ -82,7 +82,7 @@ typedef struct
 	FIFO_CONTEXT  TxFifo;
 } ASCIISTRUCT;
 
-// array in ascii.c to map our baud rate.
+// array in serial_config.c to map our baud rate.
 extern unsigned int BaudDiv[8];
 
 // ascii parameters and FIFO buffers.
@@ -90,4 +90,4 @@ extern ASCIISTRUCT Ascii;
 
 void SerialTransmitInterrupt (void);
 
-#endif /* APPLICATION_ASCII_H_ */
+#endif /* SERIAL_CONFIG_H */

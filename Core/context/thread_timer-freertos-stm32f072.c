@@ -75,7 +75,6 @@ void Thread_Timer (void *argument)
 
 	while (1)
 	{
-
 		// Wait for notification from main thread that we can run.
 		// Indefinite wait, and binary semaphone
 		ulTaskNotifyTake (pdTRUE, portMAX_DELAY);
@@ -93,11 +92,7 @@ void Thread_Timer (void *argument)
 
 #ifdef SIM_CONSUME
 		static int temp = 0;
-
-		if (temp > 50000)
-			temp = 0;
-
-		if ((++temp == 50000) && (AppObjectInitialized))
+		if ((++temp >= 50000) && (AppObjectInitialized))
 		{
 			temp = 0;
 			MessageObjectHandleRxPoll ();

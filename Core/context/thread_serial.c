@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include "app_main.h"
 #include "serial_hal.h"
-#include "ascii.h"
+
 
 void Thread_Serial (void *argument)
 {
