@@ -13,6 +13,7 @@
 
 #include "fifo.h"
 
+
 #define TIMEOUT_ERROR	 0xD0
 #define PARITY_ERROR	 0xD1
 #define TX_FIFO_TOGGLE	 0x10

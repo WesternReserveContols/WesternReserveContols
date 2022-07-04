@@ -41,12 +41,15 @@
 #include "xdatacpy.h"
 
 #include "gpio.h"
+#include "serial_config.h"
 
 // uncomment to allow the connection sizes to be changed.
 //#define NewConnectionAllocationMethod
 
 void TimerObjectSvcTimer (void);
-
+#ifdef SIM_MODBUS
+extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
+#endif
 // DEFINES
 
 // LOCAL FUNCTIONS
@@ -203,8 +206,11 @@ void AppObjectMonitorIO (void) //?
 	SHWMain ();
 
 	TimerObjectSvcTimer ();
-
+#ifdef SIM_MODBUS
+	main_port_serial();
+#else
 	RRecMain ();
+#endif
 
 	TimerObjectSvcTimer ();
 
@@ -436,7 +442,12 @@ BOOL		  AppObjectPollConsume (void)
 
 	msg.buflen = consume_data_size;
 	msg.buf	   = &P_InMsgBuffer[0];
+#ifdef SIM_MODBUS
+	MBM_QueMbTxMsg(&P_InMsgBuffer[0]);
+#else
 	AssyCFunc (&msg);
+#endif
+
 
 	return (TRUE); // no data - simply send response
 }

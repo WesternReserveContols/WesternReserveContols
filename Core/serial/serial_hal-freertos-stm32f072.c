@@ -259,7 +259,11 @@ void SH_IRQ (void)
 		/* UART in mode Receiver -------------------------------------------------*/
 		if (((isrflags & USART_ISR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
 		{
+#ifdef SIM_MODBUS
+			MB_Rx_Interrupt();
+#else
 			Serial_RX_ISR ();
+#endif
 			return;
 		}
 	}
@@ -300,7 +304,11 @@ void SH_IRQ (void)
 		/* we still want to call our receive function if errors --------------------------*/
 		// This is how original code worked - we only set parity error flag and still try to RX char
 		// Get anything pending to RX if it is available still
+#ifdef SIM_MODBUS
+		MB_Rx_Interrupt();
+#else
 		Serial_RX_ISR ();
+#endif
 		return;
 
 	} /* End if some error occurs */
@@ -309,7 +317,11 @@ void SH_IRQ (void)
 	if (((isrflags & USART_ISR_TC) != RESET) && ((cr1its & USART_CR1_TCIE) != RESET))
 	{
 		__HAL_UART_CLEAR_FLAG (&huart_main, UART_FLAG_TC);
+#ifdef SIM_MODBUS
+		MB_Tx_Interrupt();
+#else
 		Serial_TX_ISR ();
+#endif
 		return;
 	}
 }

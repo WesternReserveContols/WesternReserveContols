@@ -21,7 +21,7 @@
 #define FALSE 0
 #endif
 
-#define MAX_MODBUS_MESSAGE_SIZE 255
+#define MAX_MODBUS_MESSAGE_SIZE 		32 //TODO 255
 #define MB_DATA_BUFFER_SIZE MAX_MODBUS_MESSAGE_SIZE //size of the modbus data buffer
 
 #define ASCII_MODE 0
@@ -119,8 +119,6 @@ enum mb_status_enum_t
 	WAITING_FOR_RESPONSE,
 	PROCESSING_COMMAND,
 	PROCESSING_RESPONSE,
-
-
 };
 
 typedef struct
@@ -160,6 +158,7 @@ void          StartMbSend(void);
 int           MBLoad(unsigned char *src);
 unsigned char ComputeIOConsumeSize(void);
 unsigned char ComputeIOProduceSize(void);
+extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
 //void          MBPort_8ms_Timer(void);
 extern void	  ModbusMain(void);
 

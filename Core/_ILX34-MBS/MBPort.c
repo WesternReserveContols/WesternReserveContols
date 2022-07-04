@@ -13,6 +13,7 @@
 //#include "EE_Adr.h"
 #include "dn_eeprm.h"
 #include "memopt.h"
+#include "dn_init.h"
 #include "dn_tmobj.h"
 #include "dn_cnobj.h"
 #include "dn_dnobj.h"
@@ -24,8 +25,6 @@
 
 uchar NoByteSwap;
 uchar FloatSwap;
-BOOL		 AppObjectCOS_Bit;
-BOOL		 COSACKRcvd;
 
 #define FLT_SWAP_NONE        0
 #define FLT_SWAP_WORD_PAIRS  1
@@ -85,13 +84,14 @@ BOOL		 COSACKRcvd;
 #define MBR_F1TO4_DATA_STRT 3
 #define MBR_F5_6_15_16_LEN  6
 
-unsigned char MaxRxSize = 120;  // Max N bytes of data in Assy
+unsigned char MaxRxSize = 20; //TODO //120;  // Max N bytes of data in Assy
                                  // 10/24/2013 DRC - This now also means Max Byte Count (2*max Int data size of an assembly)
 unsigned char MaxRxBufSize = 0;
 unsigned char FragMsg=FALSE; //Jignesh TODO
 //#define NO_MASTER  //debugging ONLY!
 extern uchar P_OutMsgBuffer[];  // store IO data to be produced here
 extern uchar P_InMsgBuffer[];
+extern char			IOCnxnIsPOLLED; // Rick 403
 
 extern void TriggerCOS(void);
 extern void MessageObjectFormatSuccessMessage(void);
@@ -107,7 +107,7 @@ int ComputeMasterRecLength(unsigned char  * src,unsigned char * l);
 unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len);
 
 void UIObjectLEDRefresh(void);
-void MBport_InitSerialIO(void);
+void InitSerialIO(void);
 
 unsigned char xmitDataLen; 
 extern unsigned char   num_bytes_in_buf;
@@ -189,33 +189,6 @@ signed int RXPIN = P3 ^ 1; //Jignesh
 #define MB_SLAVEDNETCOUNT	9
 
 
-const DATA_PARITY  DataParity[9] =
-{
-   {7,NONE},  //7N2
-   {7,EVEN},  //7E1
-   {7,ODD },  //7O1
-   {7,NONE},  //8N1 - NOTE: needs the 8 int mode
-   {8,NONE},  //8N2
-   {8,EVEN},  //8E1
-   {8,ODD },  //8O1
-   {8,EVEN},  //7E2 - NOTE: needs the 9 int mode
-   {8,ODD },  //7O2 - NOTE: needs the 9 int mode
-};
-//MODBUS_ATTRIB Ascii = { // AP
-ASCIISTRUCT Ascii = {
-   0, //Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
-   7, //data bits
-   0,	//baud rate index to BaudDiv[]
-  10,	//delimiter
-   0,	//parity 0=NONE / 1 = ODD / 2 = EVEN
-   0,	//BlockSize
-	NULL, // FIFO_CONTEXT RxFifo
-	NULL  // FIFO_CONTEXT	TxFifo
-};
-
-unsigned int  MBportBaudDiv[6] = {BAUD19,BAUD12,BAUD24,BAUD48,BAUD96,BAUD38};
-
-
 /*------------------------------------------------*/
 BYTE recieve_status;//=0;
 BYTE transmit_record_counter;//=0;
@@ -235,13 +208,14 @@ unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
 unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
 unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
 
-void MBport_RestoreSerialFromEE (void)
+#if 0
+void RestoreSerialFromEE (void)
 {
 	Ascii.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
 	Ascii.baudrate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
-	MBport_InitSerialIO ();
+	InitSerialIO ();
 }
-void MBport_SHWInit (void)
+void SHWInit (void)
 {
 	FIFO_INIT fi;
 #ifdef GMM
@@ -252,9 +226,9 @@ void MBport_SHWInit (void)
 	fi.Max_Number_of_Items = TX_FIFO_SIZE;
 	Ascii.TxFifo		   = FifoInit (&fi);
 	// set up the port for action
-	MBport_RestoreSerialFromEE ();
+	RestoreSerialFromEE ();
 }
-void MBport_InitSerialIO(void)
+void InitSerialIO(void)
 {
    mb_timer = 0;
    mb_data_buffer_out_len = 0;
@@ -300,6 +274,7 @@ void MBport_InitSerialIO(void)
 
 	TriggerCOS();
 }
+#endif
 
 BYTE RecvChar(void)
 {
@@ -1085,6 +1060,8 @@ void MB_Stp_Ascii_Mde_IntChr_Timeout(void)
 
 unsigned char  * mb_data_ptr;
 
+
+
 void MB_Tx_Interrupt(void)
 {
    //Jignesh TI=0;
@@ -1145,7 +1122,8 @@ void MB_Rx_Interrupt(void)
    }
 
    //recChar = RecvChar();
-   SH_Get_Char_ISR (&recChar);
+    SH_Get_Char_ISR(&recChar);
+
 
    if ( parityChkRslt == PARITY_ERROR ) {
       MB_Exception = PARITY_ERROR;
@@ -1255,7 +1233,8 @@ void MB_Rx_Interrupt(void)
             }
          }
 
-         if(StIn==TRUE) mb_data_buffer[mb_data_buffer_len++]=recChar;
+         if(StIn==TRUE)
+        	 mb_data_buffer[mb_data_buffer_len++]=recChar;
 #ifdef RICK_SIM
          if(mb_data_buffer[mb_data_buffer_len-1]==0x0d) //for simulation
          {
@@ -1279,7 +1258,7 @@ void MB_Rx_Interrupt(void)
          {
             CrIn = TRUE;
          }
-         else if ( ( StIn==TRUE ) && ( CrIn==TRUE ))
+         else if (( StIn==TRUE ) && ( CrIn==TRUE ))
          {
             if ( recChar == 0x0a )
             {
@@ -1310,7 +1289,6 @@ void MB_Rx_Interrupt(void)
                return;
             }
          }
-
          MB_Strt_Ascii_Mde_IntChr_Timeout();
 #endif
       }
@@ -1406,7 +1384,7 @@ int MBLoad(unsigned char  *src)
       if ( FloatSwap ) {
          MB_Exception = FltSwap_Command_Flip( src, srclen, ModbusConfig.type );
          if ( MB_Exception ) {
-            //Jignesh mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
+            mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
             return 0;  // Return, If error do not continue to send message to MB device
          }
       }
@@ -1428,7 +1406,7 @@ int MBLoad(unsigned char  *src)
          if ( FloatSwap ) {
             MB_Exception = FltSwap_Response_Flip ( src, srclen, ModbusConfig.type );
             if ( MB_Exception ) {
-               //Jignesh mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
+               mainloopassydata[DNI_ERROR_CODE] = MB_Exception;
                return 0;  // Return, If error do not continue to send message to MB device
             }
          }
@@ -1568,7 +1546,7 @@ void MBM_QueMbTxMsg(unsigned char  *P_InBuf)
    //  Processing for ILX Command Byte   // ILX-13
    if(P_InBuf[MBM_CMDS] & MBM_CMDS_BOOT)   //Perform Cold Boot
    {
-      SoftReset = SOFT_RESET_ACTIVE;
+      //TODO SoftReset = SOFT_RESET_ACTIVE;
    }
    if (P_InBuf[MBM_CMDS] & MBM_CMDS_RSTCTR)
    {		
@@ -1705,7 +1683,7 @@ void SetTransmitSize(MSG  * msg)
    //TODO Ascii.TransmitSize=msg->buf[0];  //jtm 02-27-2013
    Ascii.TxFifo->Number_of_Items=msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_XMITBUFFER_ADDR,msg->buf[0]);
-    MBport_InitSerialIO();
+   //InitSerialIO();
    return;
 }
 
@@ -1719,7 +1697,7 @@ void SetReceiveSize(MSG  * msg)
    //Ascii.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
    Ascii.RxFifo->Number_of_Items=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_RECBUFFER_ADDR,msg->buf[0]);
-   MBport_InitSerialIO();
+   //InitSerialIO();
    return;
 }
 
@@ -2200,7 +2178,8 @@ void InitMbParam(void)
    // DRC 3/10/2015 took out so MB buadrate change takes effect after reset as v1.13 does InitSerialIO();
 }
 
-void main_serial (void)
+
+void main_port_serial (void)
 {
    unsigned char  *to=mb_data_buffer_out;
    unsigned char byte;
@@ -2900,15 +2879,10 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
 
    return err;
 }
-
+#if 0
 void SerialTransmitInterrupt (void)
 {
-	//TODO
-}
-
-void RestoreSerialFromEE (void)
-{
-	//TODO
+	MB_Tx_Interrupt();
 }
 
 void ToggleAndLockSyncBits (void)
@@ -2938,10 +2912,88 @@ void clearparityerror (unsigned char portnum)
 	//TODO
 }
 
-unsigned char current_status_byte (void)
+void *AsciiFunc (MSG *msg)
 {
 	//TODO
-	return 0;
 }
+void SHWMain (void)
+{
 
+	// Ascii.status MUST be syncronized
+	// with the interupts
+	//  if(START_4002)
+	/*
+	if (IOCnxnIsPOLLED == IO_CNXN_IS_POLLED)
+	{
+		//#ifdef START_4002
+
+		char chr;
+		if (TxInProgress && TxEmpty)
+		{
+			DisableInterrupts ();
+			if (FifoPop (Ascii.TxFifo, &chr))
+			{
+				EnableInterrupts ();
+				_putc_ (0, chr);
+			}
+			else
+			{
+				EnableInterrupts ();
+				IO_SET_SerialTxRx (TxRx_RECV);
+				if (!lock)
+					Ascii.status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
+				TxInProgress = 0;
+			}
+		}
+	} // END 4002
+	  //#endif
+	   */
+
+	DisableInterrupts ();
+	if (oldasts != Ascii.status)
+	{
+		TriggerCOS ();
+#ifdef GMM
+#define GMM_ERR_BITS (PARITY_ERROR_BIT | RX_FIFO_OVERFLOW | TX_FIFO_OVERFLOW)
+		// Have to check on status changes for GMM
+		// First find bits that have changed - then check if we're
+		//   interested in them.
+		if (GMMRAM.active && ((Ascii.status ^ oldasts) & GMM_ERR_BITS))
+		{
+			// only one channel - bit gets set or cleared for that chan
+			if (Ascii.status & GMM_ERR_BITS)
+			{
+				// set 'new status' bit and 'a chan has error' bit
+				GMMRAM.IOStatus = 0x03;
+				// set bit for chan 1 error
+				GMMRAM.channelStatus[0] = 0x01;
+			}
+			else
+			{
+				// set 'new status' bit only
+				GMMRAM.IOStatus = 0x02;
+				// clear bit for chan 1 error
+				GMMRAM.channelStatus[0] = 0x00;
+			}
+
+			GMM_ser_data_rcvd (); // cause new status to be transmitted
+		}
+#endif // GMM
+		oldasts = Ascii.status;
+	}
+	EnableInterrupts ();
+
+	DisableInterrupts ();
+	if (!FifoSize (Ascii.RxFifo))
+	{
+		// fifo is now empty
+		// Ascii.status MUST be syncronized
+		// with the interupts
+		Ascii.status &= ~(RX_FIFO_OVERFLOW);
+		Ascii.status &= ~IO_CNXN_IS_POLLED;
+		Ascii.status |= IOCnxnIsPOLLED; // 4003
+	}
+	EnableInterrupts ();
+}
+#endif
 // end of file

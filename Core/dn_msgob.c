@@ -15,6 +15,7 @@
 #include "dn_tmobj.h"
 #include "xdatacpy.h"
 
+
 #define CAN_INT_DISABLE (CP_Set_ECAN (0))
 #define CAN_INT_ENABLE	(CP_Set_ECAN (1))
 
@@ -1806,15 +1807,32 @@ void MessageObjectHandleStatus (void)
 void Stub_Fill(uchar * str, uchar msg_len)
 {
 	static uchar trans_id = 1;
-	char buf[] = "123456789 ABCDEFGHIJ VVVVVVVVVVV abcdefghijkl abcdefghijkl abcdefghijkl abcdefghijkl"; // temp data to be sent on serial
-	str[0] = 0; // RX byte for handshaking
-	str[1] = trans_id++; // to change transaction id
-	str[2] = 0; //reserve byte
-	str[3] = msg_len; // length for short string only single byte
-	if (trans_id % 20 == 0)
-		trans_id = 1;
-	xdata_memcpy (&(str[4]), &buf[trans_id], msg_len);
+	char buf[] = "123456789 ABCDEFGHIJ VVVVVVVVVVV abcdefghijkl abcdefghijkl"; // temp data to be sent on serial
 
+	if (msg_len == 0xFF)
+	{
+		str[0] = 0; // RX byte for handshaking
+		str[1] = 0; //
+		str[2] = trans_id++; // to change transaction id
+		str[3] = 05;
+		str[4] = 01; // length for short string only single byte
+		str[5] = 01;
+		str[6] = 01;
+		str[7] = 01;
+		str[8] = 01;
+		if (trans_id % 20 == 0)
+			trans_id = 1;
+	}
+	else
+	{
+		str[0] = 0; // RX byte for handshaking
+		str[1] = trans_id++; // to change transaction id
+		str[2] = 0; //reserve byte
+		str[3] = msg_len; // length for short string only single byte
+		if (trans_id % 20 == 0)
+			trans_id = 1;
+		xdata_memcpy (&(str[4]), &buf[trans_id], msg_len);
+	}
 }
 
 void MessageObjectHandleRxPoll (void)
@@ -1836,8 +1854,9 @@ void MessageObjectHandleRxPoll (void)
 #define ARRAY_MSG 			1
 #define SHORT_STRING_MSG 	2
 #define STRING_MSG 			3
+#define MODBUS_MSG			4
 
-	uchar msg_type = STRING_MSG;
+	uchar msg_type = MODBUS_MSG;
     if(TRUE)  // Has CM_PEENDING
 	{
 		if(TRUE) // Has CNXN_ESTABLISHED
@@ -1852,6 +1871,9 @@ void MessageObjectHandleRxPoll (void)
 					break;
 				case STRING_MSG:
 					ConsFragPtr = 24;   // ASSY_CINST size in bytes.
+					break;
+				case MODBUS_MSG:
+					ConsFragPtr = 0xFF;
 					break;
 				default:
 					break;

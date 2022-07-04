@@ -23,7 +23,6 @@ int main (void)
 	SystemClock_Config ();
 	MX_GPIO_Init ();
 
-	//
 	// I2C for EEPROM
 	MX_I2C1_Init ();
 	//
