@@ -79,7 +79,8 @@
 #define MB_MASTERMODE	0
 #define MB_SLAVEMODE	1
 
-// errors 1-8 are errors defined by MB Spec
+// errors 1-8 are BYTE ProduceData[DATA_BUFFER_SIZE];
+//  BYerrors defined by MB Spec
 #define INVALID_FUNC_ERROR                         0x01
 #define INVALID_ADR_ERROR                          0x02
 #define INVALID_DATALENGTH_ERROR                   0x03
@@ -115,7 +116,7 @@
 
 enum mb_status_enum_t
 {
-	READY_FOR_COMMAND =1,
+	READY_FOR_COMMAND = 1,
 	WAITING_FOR_RESPONSE,
 	PROCESSING_COMMAND,
 	PROCESSING_RESPONSE,
@@ -123,10 +124,42 @@ enum mb_status_enum_t
 
 typedef struct
 {
-	BYTE enable;
-	BYTE Mode;
+//  WORD  NumAttrib;
+//  WORD  AttribList[ATTRIB_QTY];
+//  WORD  ConsumePathSize;
+//  BYTE ConsumePath[PATH_SIZE];
+//  WORD  ProducePathSize;
+//  BYTE ProducePath[PATH_SIZE];
+//  WORD  ConsumeDataSize;
+//  BYTE ConsumeData[DATA_BUFFER_SIZE];
+//  WORD  ProduceDataSize;
+//  BYTE ProduceData[DATA_BUFFER_SIZE];
+  BYTE Status;
+  BYTE Mode;
+  BYTE ASCIIinstance;
+} MODBUS_ATTRIB;
 
-}MODBUS_ATTRIB;
+typedef struct
+{
+  BYTE Framing;
+  BYTE DataBits;
+  BYTE BaudRate;
+  BYTE Delimiter;
+  BYTE Parity;
+  BYTE BlockSize;
+  BYTE Mode;
+  BYTE ReceiveSize;
+  BYTE TransmitSize;
+  BYTE Pad;//:1;
+  BYTE PadChar;
+  BYTE TransmitDelimiter;
+  BYTE Status;
+  FIFO_CONTEXT RxFifo;
+  FIFO_CONTEXT TxFifo;
+} ASCII_ATTRIB;
+
+extern ASCII_ATTRIB Ascii_attrib;
+
 
 typedef struct
 {
@@ -161,7 +194,45 @@ unsigned char ComputeIOProduceSize(void);
 extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
 //void          MBPort_8ms_Timer(void);
 extern void	  ModbusMain(void);
+extern void MB_Rx_Interrupt(void);
+extern void MB_Tx_Interrupt(void);
+extern void InitMbParam(void);
+extern void InitAssembly(void);
+extern void main_port_serial (void);
+extern void Mb_FactoryDefaults(void);
+extern void InitRtuTimeout(void);
 
+// Get Functions
+void GetFraming(MSG  * msg);
+void GetBaudRate(MSG  * msg);
+
+void MB_GetProtocol(MSG  * msg);
+void MB_GetType(MSG  * msg);
+void MB_GetTimeout(MSG  * msg);
+void MB_GetSlaveID(MSG  * msg);
+void MB_GetCoil_StartAddr(MSG  * msg);
+void MB_GetCoil_Count(MSG  * msg);
+void MB_GetDiscInput_StartAddr(MSG  * msg);
+void MB_GetDiscInput_Count(MSG  * msg);
+void MB_GetInReg_StartAddr(MSG  * msg);
+void MB_GetInReg_Count(MSG  * msg);
+void MB_GetHoldReg_StartAddr(MSG  * msg);
+void MB_GetHoldReg_Count(MSG  * msg);
+
+void SetBaudRate(MSG  * msg);void SetFraming(MSG  * msg);
+
+void MB_SetProtocol(MSG  * msg);
+void MB_SetType(MSG  * msg);
+void MB_SetTimeout(MSG  * msg);
+void MB_SetSlaveID(MSG  * msg);
+void MB_SetCoil_StartAddr(MSG  * msg);
+void MB_SetCoil_Count(MSG  * msg);
+void MB_SetDiscInput_StartAddr(MSG  * msg);
+void MB_SetDiscInput_Count(MSG  * msg);
+void MB_SetInReg_StartAddr(MSG  * msg);
+void MB_SetInReg_Count(MSG  * msg);
+void MB_SetHoldReg_StartAddr(MSG  * msg);
+void MB_SetHoldReg_Count(MSG  * msg);
 
 /////these are read only, do not write to these ever.
 // extern unsigned char xdata produce_buffer[MAX_MODBUS_MESSAGE_SIZE]; //AP

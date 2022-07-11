@@ -9,6 +9,7 @@
 #include "serial_hal.h"
 #include "serial_config.h"
 
+
 /////////////////////////////
 // Variables
 
@@ -26,9 +27,10 @@ static uint32_t sh_parity	   = UART_PARITY_NONE;
 
 ////////////////////////////
 // Internal Function Prototypes
-
+#ifndef SIM_MODBUS
 static void Serial_RX_ISR (void);
 static void Serial_TX_ISR (void);
+#endif
 
 // init function
 serial_status SH_Init (void)
@@ -113,7 +115,11 @@ serial_status SH_Set_Parameters (void)
 	}
 	//
 	// framing define will set Data, parity, and stop bits
+#ifdef SIM_MODBUS
+	switch (Ascii_attrib.Framing)
+#else
 	switch (Ascii.Framing)
+#endif
 	{
 	case FRAME_7N2:
 		// special case for our driver
@@ -121,7 +127,7 @@ serial_status SH_Set_Parameters (void)
 		DSC_Writes (DSC_LEVEL_INFO, "7N2\r\n");
 		sh_flag_7N2	   = 1;
 		sh_word_length = UART_WORDLENGTH_8B;
-		sh_stop_bits   = UART_STOPBITS_1;
+		sh_stop_bits   = UART_STOPBITS_2;
 		sh_parity	   = UART_PARITY_NONE;
 		break;
 	case FRAME_7E1:
@@ -188,7 +194,11 @@ serial_status SH_Set_Parameters (void)
 	//
 	// baudrate is used as an offset that maps to the BaudDiv array.
 	// just map it here to our desired baud rate
+#ifdef SIM_MODBUS
+	switch (BaudDiv[Ascii_attrib.BaudRate])
+#else
 	switch (BaudDiv[Ascii.baudrate])
+#endif
 	{
 	case BAUD12:
 		DSC_Writes (DSC_LEVEL_INFO, "1200b\n\r");
@@ -277,7 +287,12 @@ void SH_IRQ (void)
 		{
 			__HAL_UART_CLEAR_FLAG (&huart_main, UART_CLEAR_PEF);
 			DSC_Writes (DSC_LEVEL_INFO, "Parity ERR\r\n");
+#ifdef SIM_MODBUS
+			Ascii_attrib.Status |= PARITY_ERROR_BIT;
+#else
+
 			Ascii.status |= PARITY_ERROR_BIT;
+#endif
 		}
 
 		/* UART noise error interrupt occurred -----------------------------------*/
@@ -397,6 +412,7 @@ serial_status SH_Get_Char_ISR (char *c)
 	return SER_Success;
 }
 
+#ifndef SIM_MODBUS
 // Taken from serial recieve function
 // Simply get char and push to fifo if possible
 static void Serial_RX_ISR (void)
@@ -431,3 +447,4 @@ static void Serial_TX_ISR (void)
 {
 	SerialTransmitInterrupt ();
 }
+#endif

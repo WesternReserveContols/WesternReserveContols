@@ -6,7 +6,7 @@
 #include "io_peripheral.h"
 #include "serial_hal.h"
 #include "serial_config.h"
-
+#include "tim.h"
 
 #include "fifo.h"
 //#include "obj_def.h"
@@ -84,7 +84,7 @@ uchar FloatSwap;
 #define MBR_F1TO4_DATA_STRT 3
 #define MBR_F5_6_15_16_LEN  6
 
-unsigned char MaxRxSize = 20; //TODO //120;  // Max N bytes of data in Assy
+unsigned char MaxRxSize = 120;  // Max N bytes of data in Assy
                                  // 10/24/2013 DRC - This now also means Max Byte Count (2*max Int data size of an assembly)
 unsigned char MaxRxBufSize = 0;
 unsigned char FragMsg=FALSE; //Jignesh TODO
@@ -166,13 +166,14 @@ int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
 
-// MODBUS_ATTRIB ModAttrib = { // AP
-
 MODBUS_ATTRIB ModAttrib = {
    0,
    ASCII_MODE,
-//TODO   1,
+   1,
 };
+
+ASCII_ATTRIB Ascii_attrib;
+
 #define P3 2 //Jignesh
 signed int TxRx = P3 ^ 2; //Jignesh
 signed int TXPIN = P3 ^ 0; //Jignesh
@@ -406,11 +407,11 @@ void SerialI(void) interrupt	4
 // This is size of PLC_Header plus the MB_TXRX_Size  
 unsigned char ComputeIOConsumeSize(void)
 {
-   return 0; //Jignesh (Ascii.ReceiveSize); //jtm 02-28-2013
+   return (Ascii_attrib.ReceiveSize); //jtm 02-28-2013
 }
 unsigned char ComputeIOProduceSize(void)
 {
-   return 0; //Jignesh (Ascii.TransmitSize); //jtm 02-28-2013
+   return (Ascii_attrib.TransmitSize); //jtm 02-28-2013
 }
 
 WORD UpdateCRC(BYTE mydata,WORD crc)
@@ -1008,30 +1009,22 @@ const unsigned int RTU_Timeout[6] = {57740,0,4476,35006,48000,59700};
 
 void InitRtuTimeout(void) //called from InitSerialIO()
 {
-   //TimerL = (BYTE)RTU_Timeout[Ascii.BaudRate]; //Jignesh
-   //TimerH = (BYTE)(RTU_Timeout[Ascii.BaudRate] >> 8); //Jignesh
-   TimerL = (BYTE)RTU_Timeout[Ascii.baudrate];
-   TimerH = (BYTE)(RTU_Timeout[Ascii.baudrate] >> 8);
+   TimerL = (BYTE)RTU_Timeout[Ascii_attrib.BaudRate];
+   TimerH = (BYTE)(RTU_Timeout[Ascii_attrib.BaudRate] >> 8);
 }
 
 void UIObjectLedDrive(uchar ledbyte1, uchar ledbyte2);
 
 void MB_StartRtuTimeout(void)// a 3.5 CHARACTER timeout
 {
-#if 0 //Jignesh
-   TL0 = TimerL;//load timer
-   TH0 = TimerH;
-   TR0 = 1;//start timer
-   ET0 = 1;//enable Timer0 interrupt
-#endif
+	int TimerVal = 0;
+	TimerVal = RTU_Timeout[Ascii_attrib.BaudRate];
+	MX_TIM15_Init (TimerVal);
 }
 
 void MB_StopRtuTimeout(void)
 {
-#if 0 //Jignesh
-   TR0 = 0;//stop timer
-   ET0 = 0;//disable Timer0 interrupt
-#endif
+	MX_TIM15_Stop();
 }
 
 void MB_Rtu_TimedOut(void) //interrupt 1  // using 2
@@ -1111,8 +1104,6 @@ void UIObjectLEDRefresh(void);
 
 void MB_Rx_Interrupt(void)
 {
-   //	static BYTE cnt=0;
-
    err = 0;
 
    // if the receive buffer is clear and ready to receive first character
@@ -1661,16 +1652,14 @@ void GetReceiveSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   //Jigs msg->buf[0]=Ascii.ReceiveSize;
-   msg->buf[0]= Ascii.RxFifo->Number_of_Items;
+   msg->buf[0]=Ascii_attrib.ReceiveSize;
 }
 
 void GetTransmitSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   //Jigs msg->buf[0]=Ascii.TransmitSize;
-   msg->buf[0]=Ascii.TxFifo->Number_of_Items;
+   msg->buf[0]=Ascii_attrib.TransmitSize;
 }
 
 void SetTransmitSize(MSG  * msg)
@@ -1680,8 +1669,7 @@ void SetTransmitSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   //TODO Ascii.TransmitSize=msg->buf[0];  //jtm 02-27-2013
-   Ascii.TxFifo->Number_of_Items=msg->buf[0];
+   Ascii_attrib.TransmitSize=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_XMITBUFFER_ADDR,msg->buf[0]);
    //InitSerialIO();
    return;
@@ -1694,8 +1682,7 @@ void SetReceiveSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   //Ascii.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
-   Ascii.RxFifo->Number_of_Items=msg->buf[0];  //jtm 02-27-2013
+   Ascii_attrib.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_RECBUFFER_ADDR,msg->buf[0]);
    //InitSerialIO();
    return;
@@ -1705,7 +1692,7 @@ void GetFraming(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii.Framing;
+   msg->buf[0]=Ascii_attrib.Framing;
 }
 
 void SetFraming(MSG  * msg)
@@ -1720,7 +1707,7 @@ void SetFraming(MSG  * msg)
       g_status=INVALID_ATTRIBUTE_DATA;
       return;   
    }
-   Ascii.Framing = msg->buf[0];
+   Ascii_attrib.Framing = msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_CHARACTER_FORMAT,msg->buf[0]);
    msg->buflen=0;
 }
@@ -1729,7 +1716,7 @@ void GetBaudRate(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen = 1;
-   msg->buf[0]=Ascii.baudrate;
+   msg->buf[0]= Ascii_attrib.BaudRate;
 }
 
 void SetBaudRate(MSG  * msg)
@@ -1745,7 +1732,7 @@ void SetBaudRate(MSG  * msg)
       g_status=INVALID_ATTRIBUTE_DATA;
       return;
    }
-   Ascii.baudrate=msg->buf[0];
+   Ascii_attrib.BaudRate = msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_BAUDRATE,msg->buf[0]);
    msg->buflen=0;
 }
@@ -2004,11 +1991,11 @@ void Mb_FactoryDefaults(void)
 {
    // default them and save to EEPROM
    ModAttrib.Mode = 0; 			  //ASCII mode
-   Ascii.Framing = 0;		// 7 N 2
-   Ascii.baudrate = 0; 	//19200
+   Ascii_attrib.Framing = 0;		// 7 N 2
+   Ascii_attrib.BaudRate = 0; 	//19200
    timeout_reload_value = 0;
-   Ascii.RxFifo->Number_of_Items  = 26;
-   Ascii.TxFifo->Number_of_Items  = 30;
+   Ascii_attrib.RxFifo->Number_of_Items  = 26;
+   Ascii_attrib.TxFifo->Number_of_Items  = 30;
    DeviceNetObjectRAM.baudrate = 3;   //DRC 3/3/2015 set from 0 to 3 to match cstparam.c custParamInit()
    ModbusConfig.type =  MB_MASTERMODE;
    ModbusConfig.timeout = 2000;
@@ -2022,9 +2009,9 @@ void Mb_FactoryDefaults(void)
    ModbusConfig.HoldReg_Count = 0;
    ModbusConfig.slaveID = 0;
    /* Now save to EEPROM */
-   Write_EE_Byte(EE_SERIAL_CHARACTER_FORMAT, Ascii.Framing);
+   Write_EE_Byte(EE_SERIAL_CHARACTER_FORMAT, Ascii_attrib.Framing);
 
-   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii.baudrate);
+   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii_attrib.BaudRate);
    Write_EE_Byte(EE_MODBUSMODE_ADDR, ModAttrib.Mode);
    //MSB
    Write_EE_Byte(EE_TIMEOUT_LOW_ADDR,timeout_reload_value & 0xFF);
@@ -2093,86 +2080,87 @@ void Mb_FactoryDefaults(void)
 
 void InitMbParam(void)
 {
-   ModAttrib.Mode = Read_EE_Byte(EE_MODBUSMODE_ADDR);
+	   ModAttrib.Mode = Read_EE_Byte(EE_MODBUSMODE_ADDR);
 
-   Ascii.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
+	   Ascii_attrib.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
 
-   Ascii.baudrate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
+	   Ascii_attrib.BaudRate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
 
-   timeout_reload_value  = Read_EE_Byte(EE_TIMEOUT_HI_ADDR);
-   timeout_reload_value = timeout_reload_value << 8;
-   timeout_reload_value += Read_EE_Byte(EE_TIMEOUT_LOW_ADDR); 
+	   timeout_reload_value  = Read_EE_Byte(EE_TIMEOUT_HI_ADDR);
+	   timeout_reload_value = timeout_reload_value << 8;
+	   timeout_reload_value += Read_EE_Byte(EE_TIMEOUT_LOW_ADDR);
 
-   Ascii.RxFifo->Number_of_Items = Read_EE_Byte(EE_RECBUFFER_ADDR);
-   Ascii.TxFifo->Number_of_Items = Read_EE_Byte(EE_XMITBUFFER_ADDR);
+	   Ascii_attrib.ReceiveSize= Read_EE_Byte(EE_RECBUFFER_ADDR);
+	   Ascii_attrib.TransmitSize= Read_EE_Byte(EE_XMITBUFFER_ADDR);
 
-   ModbusConfig.type = Read_EE_Byte(MB_TYPE_NVRAM_ADDR);
+	   ModbusConfig.type = Read_EE_Byte(MB_TYPE_NVRAM_ADDR);
 
-   // Get MSB first
-   ModbusConfig.timeout  = Read_EE_Byte(MB_TIMEOUT_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.timeout = ModbusConfig.timeout << 8;
-   // Add LSB
-   ModbusConfig.timeout += Read_EE_Byte(MB_TIMEOUT_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.timeout  = Read_EE_Byte(MB_TIMEOUT_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.timeout = ModbusConfig.timeout << 8;
+	   // Add LSB
+	   ModbusConfig.timeout += Read_EE_Byte(MB_TIMEOUT_NVRAM_ADDR+1);
 
-   // DRC 3/12/2015 make sure slave is retreived from LSB in memory "MB_SLAVEID_NVRAM + 1"
-   ModbusConfig.slaveID = Read_EE_Byte(MB_SLAVEID_NVRAM_ADDR+1);
+	   // DRC 3/12/2015 make sure slave is retreived from LSB in memory "MB_SLAVEID_NVRAM + 1"
+	   ModbusConfig.slaveID = Read_EE_Byte(MB_SLAVEID_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.Coil_StartAddr  = Read_EE_Byte(MB_COILSTART_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.Coil_StartAddr = ModbusConfig.Coil_StartAddr << 8;
-   // Add LSB
-   ModbusConfig.Coil_StartAddr += Read_EE_Byte(MB_COILSTART_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.Coil_StartAddr  = Read_EE_Byte(MB_COILSTART_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.Coil_StartAddr = ModbusConfig.Coil_StartAddr << 8;
+	   // Add LSB
+	   ModbusConfig.Coil_StartAddr += Read_EE_Byte(MB_COILSTART_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.Coil_Count  = Read_EE_Byte(MB_COILCOUNT_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.Coil_Count = ModbusConfig.Coil_Count << 8;
-   // Add LSB
-   ModbusConfig.Coil_Count += Read_EE_Byte(MB_COILCOUNT_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.Coil_Count  = Read_EE_Byte(MB_COILCOUNT_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.Coil_Count = ModbusConfig.Coil_Count << 8;
+	   // Add LSB
+	   ModbusConfig.Coil_Count += Read_EE_Byte(MB_COILCOUNT_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.DiscInput_StartAddr  = Read_EE_Byte(MB_DISCINPUTSTART_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.DiscInput_StartAddr = ModbusConfig.DiscInput_StartAddr << 8;
-   // Add LSB
-   ModbusConfig.DiscInput_StartAddr += Read_EE_Byte(MB_DISCINPUTSTART_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.DiscInput_StartAddr  = Read_EE_Byte(MB_DISCINPUTSTART_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.DiscInput_StartAddr = ModbusConfig.DiscInput_StartAddr << 8;
+	   // Add LSB
+	   ModbusConfig.DiscInput_StartAddr += Read_EE_Byte(MB_DISCINPUTSTART_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.DiscInput_Count  = Read_EE_Byte(MB_DISCINPUTCOUNT_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.DiscInput_Count = ModbusConfig.DiscInput_Count << 8;
-   ModbusConfig.DiscInput_Count += Read_EE_Byte(MB_DISCINPUTCOUNT_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.DiscInput_Count  = Read_EE_Byte(MB_DISCINPUTCOUNT_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.DiscInput_Count = ModbusConfig.DiscInput_Count << 8;
+	   ModbusConfig.DiscInput_Count += Read_EE_Byte(MB_DISCINPUTCOUNT_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.InReg_StartAddr  = Read_EE_Byte(MB_INREGSTART_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.InReg_StartAddr = ModbusConfig.InReg_StartAddr << 8;
-   // Add LSB
-   ModbusConfig.InReg_StartAddr += Read_EE_Byte(MB_INREGSTART_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.InReg_StartAddr  = Read_EE_Byte(MB_INREGSTART_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.InReg_StartAddr = ModbusConfig.InReg_StartAddr << 8;
+	   // Add LSB
+	   ModbusConfig.InReg_StartAddr += Read_EE_Byte(MB_INREGSTART_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.InReg_Count  = Read_EE_Byte(MB_INREGCOUNT_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.InReg_Count = ModbusConfig.InReg_Count << 8;
-   // Add LSB
-   ModbusConfig.InReg_Count += Read_EE_Byte(MB_INREGCOUNT_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.InReg_Count  = Read_EE_Byte(MB_INREGCOUNT_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.InReg_Count = ModbusConfig.InReg_Count << 8;
+	   // Add LSB
+	   ModbusConfig.InReg_Count += Read_EE_Byte(MB_INREGCOUNT_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.HoldReg_StartAddr  = Read_EE_Byte(MB_HOLDREGSTART_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.HoldReg_StartAddr = ModbusConfig.HoldReg_StartAddr << 8;
-   // Add LSB
-   ModbusConfig.HoldReg_StartAddr += Read_EE_Byte(MB_HOLDREGSTART_NVRAM_ADDR+1);
+	   // Get MSB first
+	   ModbusConfig.HoldReg_StartAddr  = Read_EE_Byte(MB_HOLDREGSTART_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.HoldReg_StartAddr = ModbusConfig.HoldReg_StartAddr << 8;
+	   // Add LSB
+	   ModbusConfig.HoldReg_StartAddr += Read_EE_Byte(MB_HOLDREGSTART_NVRAM_ADDR+1);
 
-   // Get MSB first
-   ModbusConfig.HoldReg_Count  = Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR);
-   // Make it the Hi byte
-   ModbusConfig.HoldReg_Count = ModbusConfig.HoldReg_Count << 8;
-   // Add LSB
-   ModbusConfig.HoldReg_Count += Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1);
-   
+	   // Get MSB first
+	   ModbusConfig.HoldReg_Count  = Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR);
+	   // Make it the Hi byte
+	   ModbusConfig.HoldReg_Count = ModbusConfig.HoldReg_Count << 8;
+	   // Add LSB
+	   ModbusConfig.HoldReg_Count += Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1);
+
+   InitAssembly();
 	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken 
 	 // out of the InitAssembly() routine. 
    // DRC 3/10/2015 took out so MB buadrate change takes effect after reset as v1.13 does InitSerialIO();
@@ -2632,7 +2620,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
    }
 
-   for ( i = size_of_mainloopassydata; i < Ascii.TxFifo->Number_of_Items; i++ )
+   for ( i = size_of_mainloopassydata; i < Ascii_attrib.TransmitSize; i++ )
    {
       mainloopassydata[i] = 0x00;
    }	
@@ -2879,6 +2867,8 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
 
    return err;
 }
+
+
 #if 0
 void SerialTransmitInterrupt (void)
 {

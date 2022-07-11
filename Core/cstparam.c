@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include "ee_adr.h"
 #include "msg.h"
+#include "serial_config.h"
 
 /**************************************
 
@@ -1005,6 +1006,9 @@ void ParamClassReset (void)
 	Write_EE_Byte (EE_CUST_PARAM_INIT_VAR, 0);
 	CustParamInit ();
 	InitRxTxAssy ();
+#ifdef SIM_MODBUS
+	InitMbParam();
+#endif
 	RestoreSerialFromEE ();
 }
 

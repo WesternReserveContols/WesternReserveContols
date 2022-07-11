@@ -11,6 +11,7 @@
 #include "app_main.h"
 #include "can.h"
 #include "dsc.h"
+#include "ee_adr.h"
 
 #include <inttypes.h>
 #include <math.h>
@@ -92,11 +93,12 @@ void Thread_Timer (void *argument)
 
 #ifdef SIM_CONSUME
 		static int temp = 0;
-		if ((++temp >= 50000) && (AppObjectInitialized))
+		if ((++temp >= 20000) && (AppObjectInitialized))
 		{
 			temp = 0;
 			MessageObjectHandleRxPoll ();
 		}
+		AppObjectMonitorIO(); //TODO Remove once RX is working vis CAN messages //main_port_serial(); //This function used to test receive buffer.
 #endif
 		CP_Hardware_Handler ();
 

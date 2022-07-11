@@ -12,6 +12,8 @@
 #include "dn_eeprm.h"
 #include "nvs_obj.h"
 
+#include "serial_config.h"
+
 //***********************************************************************
 //
 // Function                    InitCAN()
@@ -474,7 +476,9 @@ void InitFactoryDefaults ()
 {
 	DeviceNetObjectFactoryDefaults ();
 	DeviceNetObjectSaveEEPROM ();
-
+#ifdef SIM_MODBUS
+	Mb_FactoryDefaults();
+#endif
 	AppObjectFactoryDefaults ();
 	AppObjectSaveEEPROM ();
 }

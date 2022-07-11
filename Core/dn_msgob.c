@@ -1816,10 +1816,10 @@ void Stub_Fill(uchar * str, uchar msg_len)
 		str[2] = trans_id++; // to change transaction id
 		str[3] = 05;
 		str[4] = 01; // length for short string only single byte
-		str[5] = 01;
-		str[6] = 01;
-		str[7] = 01;
-		str[8] = 01;
+		str[5] = 00;
+		str[6] = 00;
+		str[7] = 00;
+		str[8] = 10;
 		if (trans_id % 20 == 0)
 			trans_id = 1;
 	}

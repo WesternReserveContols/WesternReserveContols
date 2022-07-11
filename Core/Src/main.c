@@ -11,6 +11,7 @@
 #include "dsc.h"
 #include "dsc_uart.h"
 
+#include "serial_config.h"
 #include "bld_nmbr.h"
 #include "module_id.h"
 
@@ -165,6 +166,12 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 	if (htim->Instance == TIM6)
 	{
 		HAL_IncTick ();
+	}
+	else if (htim->Instance == TIM15)
+	{
+#ifdef SIM_MODBUS
+		InitRtuTimeout();
+#endif
 	}
 }
 

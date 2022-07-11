@@ -166,8 +166,19 @@ void ParseAndSendTxStr (unsigned char a, unsigned char UseDelim)
 	// adjust the stored string length in case we have encountered the delimiter
 }
 
+
 void SRecProtSetTxRec (MSG *msg)
 {
+#ifdef SIM_MODBUS
+	if(!DnCheckAttrLen(msg,1,1))
+		return;
+	if(txrecnum == msg->buf[0])
+		return;
+	else
+		return;
+
+	txrecnum=msg->buf[0];
+#else
 	if (!DnCheckAttrLen (msg, 1, 1))
 		return;
 	if (txrecnum != msg->buf[0])
@@ -183,6 +194,7 @@ void SRecProtSetTxRec (MSG *msg)
 
 	txrecnum	= msg->buf[0];
 	msg->buflen = 0;
+#endif
 }
 
 void SRecProtSetTxStr (MSG *msg)

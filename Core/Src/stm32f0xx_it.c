@@ -9,7 +9,7 @@ extern CAN_HandleTypeDef  hcan1;
 extern TIM_HandleTypeDef  htim6;
 extern DMA_HandleTypeDef  hdma_usart_tx; // uart1 dma
 extern UART_HandleTypeDef huart_dsc;
-
+extern TIM_HandleTypeDef htim15;
 /******************************************************************************/
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
@@ -53,6 +53,11 @@ void TIM7_IRQHandler (void)
 {
 	TIM7->SR = 0;
 	DSC_Handle_Tick ();
+}
+
+void TIM15_IRQHandler (void)
+{
+	HAL_TIM_IRQHandler(&htim15);
 }
 
 void DMA1_Channel4_5_6_7_IRQHandler (void)
