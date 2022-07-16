@@ -49,7 +49,8 @@ void SetProduceAssyNum(MSG * msg);
 unsigned char ComputeIOConsumeSize(void);
 unsigned char ComputeIOProduceSize(void);
 void SetConsumeAssyNum(MSG * msg);
-
+void GetProduceAssyNum(MSG * msg);
+void GetConsumeAssyNum(MSG  * msg);
 
 unsigned char ConsumeAssyNum,ProduceAssyNum;
 extern unsigned char MaxRxSize;
@@ -756,6 +757,7 @@ void *AssemblyFunc (MSG *msg)
 	}
 	return NULL;
 }
+
 void GetConsumeAssyNum(MSG  * msg)
 {
 	msg->buf[0] = ConsumeAssyNum;

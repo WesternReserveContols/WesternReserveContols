@@ -1,4 +1,3 @@
-// MBPort.c
 #include "mbport.h"
 
 #include "msg.h"
@@ -172,7 +171,27 @@ MODBUS_ATTRIB ModAttrib = {
    1,
 };
 
-ASCII_ATTRIB Ascii_attrib;
+ASCII_ATTRIB Ascii_attrib = {
+   3, //TODO 0 to 3 changed for testing //Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
+   7, //data bits
+   0,	//baud rate index to BaudDiv[]
+  10,	//delimiter
+   0,	//parity 0=NONE / 1 = ODD / 2 = EVEN
+   0,	//BlockSize
+   0,	//Mode
+   //                       0    //Framing
+};
+const DATA_PARITY MBport_DataParity[9] = {
+	{ 7, NONE }, // 7N2
+	{ 7, EVEN }, // 7E1
+	{ 7, ODD },	 // 7O1
+	{ 7, NONE }, // 8N1 - NOTE: needs the 8 bit mode
+	{ 8, NONE }, // 8N2
+	{ 8, EVEN }, // 8E1
+	{ 8, ODD },	 // 8O1
+	{ 8, EVEN }, // 7E2 - NOTE: needs the 9 bit mode
+	{ 8, ODD },	 // 7O2 - NOTE: needs the 9 bit mode
+};
 
 #define P3 2 //Jignesh
 signed int TxRx = P3 ^ 2; //Jignesh
@@ -209,28 +228,22 @@ unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
 unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
 unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
 
-#if 0
-void RestoreSerialFromEE (void)
+
+void MBport_RestoreSerialFromEE (void)
 {
-	Ascii.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
-	Ascii.baudrate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
-	InitSerialIO ();
+	Ascii_attrib.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
+	Ascii_attrib.BaudRate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
+	MBport_InitSerialIO ();
 }
-void SHWInit (void)
+
+void MBport_InitSerialIO(void)
 {
-	FIFO_INIT fi;
-#ifdef GMM
-	fifo_used_mem = 0; // maybe this can be removed later
-#endif				   // GMM
-	fi.Max_Number_of_Items = RX_FIFO_SIZE;
-	Ascii.RxFifo		   = FifoInit (&fi);
-	fi.Max_Number_of_Items = TX_FIFO_SIZE;
-	Ascii.TxFifo		   = FifoInit (&fi);
-	// set up the port for action
-	RestoreSerialFromEE ();
-}
-void InitSerialIO(void)
-{
+   static char init_status = 0;
+
+   if (init_status ==1)
+	   return;
+
+   init_status = 1;
    mb_timer = 0;
    mb_data_buffer_out_len = 0;
    error_status = 0;
@@ -239,8 +252,8 @@ void InitSerialIO(void)
    /* set for 1 sec */
    mb_timeoutcounter = ModbusConfig.timeout;
    mb_messagesent = 0;
-   Ascii.DataBits = DataParity[Ascii.Framing].DataBits;
-   Ascii.Parity = DataParity[Ascii.Framing].Parity;
+   Ascii_attrib.DataBits = MBport_DataParity[Ascii_attrib.Framing].DataBits;
+   Ascii_attrib.Parity = MBport_DataParity[Ascii_attrib.Framing].Parity;
    TxRx = TxRx_RECV;              //rs485 TX/RX to receive
    mb_data_buffer_len=0;			     //er-- experiment
 
@@ -275,7 +288,6 @@ void InitSerialIO(void)
 
 	TriggerCOS();
 }
-#endif
 
 BYTE RecvChar(void)
 {
@@ -1005,21 +1017,22 @@ void StopTimeout(void)
 
 /********************* RTU TIMEOUT SYSTEM ************************/
 BYTE TimerL,TimerH;
-const unsigned int RTU_Timeout[6] = {57740,0,4476,35006,48000,59700};
+const unsigned int RTU_Timeout[6] = { 29166, 14583, 7292, 3646, 1823, 912 };
+// 1200>0.029166667, 2400>0.014583333, 4800>0.007291667, 9600>0.003645833, 19200>0.001822917, 38400>0.000911458
 
+static uint32_t TimerVal = 0;
 void InitRtuTimeout(void) //called from InitSerialIO()
 {
-   TimerL = (BYTE)RTU_Timeout[Ascii_attrib.BaudRate];
-   TimerH = (BYTE)(RTU_Timeout[Ascii_attrib.BaudRate] >> 8);
+	TimerVal = RTU_Timeout[Ascii_attrib.BaudRate];
+	MX_TIM15_Init (TimerVal);
 }
 
 void UIObjectLedDrive(uchar ledbyte1, uchar ledbyte2);
 
 void MB_StartRtuTimeout(void)// a 3.5 CHARACTER timeout
 {
-	int TimerVal = 0;
-	TimerVal = RTU_Timeout[Ascii_attrib.BaudRate];
-	MX_TIM15_Init (TimerVal);
+	MX_TIM15_Stop();
+	MX_TIM15_Start();
 }
 
 void MB_StopRtuTimeout(void)
@@ -1029,7 +1042,11 @@ void MB_StopRtuTimeout(void)
 
 void MB_Rtu_TimedOut(void) //interrupt 1  // using 2
 {
-   MB_StopRtuTimeout(); //stop the timer interrupt
+   MX_TIM15_Stop();
+   if (mb_data_buffer_len < 4)
+   {
+	   return;
+   }
    if (ModbusConfig.type == MB_MASTERMODE) {
       MB_Status = PROCESSING_RESPONSE;
    }
@@ -1093,8 +1110,11 @@ void MB_Tx_Interrupt(void)
 #ifdef RICK_SIM
 static unsigned char rtubyte=0;
 static unsigned char rtucnt=0;
-//#define TEST_RTU
+#define TEST_RTU
 #endif
+static unsigned char rtubyte=0;
+static unsigned char rtucnt=0;
+//#define TEST_RTU //TODO Test
 
 unsigned char StIn,CrIn;
 unsigned char err;
@@ -1121,29 +1141,27 @@ void MB_Rx_Interrupt(void)
    }
 
 #ifdef TEST_RTU
-
    if((recChar != 0x0d) && (recChar != 0x0a))
    {
-
-      if(rtucnt)
-      {
-         if((recChar>='a') && (recChar<= 'f')) recChar = recChar - 0x57; 
-         recChar = ((rtubyte << 4) + (recChar & 0x0F));
-         rtucnt = 0;
-      }
-      else
-      {
-         if((recChar>='a') && (recChar<= 'f')) recChar = recChar - 0x57; 
-         rtubyte = recChar;
-         ++rtucnt;
-         MB_StopRtuTimeout();
-         RI=0;
-         return;
-      }
+	  if(rtucnt)
+	  {
+		 if((recChar>='a') && (recChar<= 'f')) recChar = recChar - 0x57;
+		 recChar = ((rtubyte << 4) + (recChar & 0x0F));
+		 rtucnt = 0;
+	  }
+	  else
+	  {
+		 if((recChar>='a') && (recChar<= 'f')) recChar = recChar - 0x57;
+		 rtubyte = recChar;
+		 ++rtucnt;
+		 MB_StopRtuTimeout();
+		 //RI=0;
+		 return;
+	  }
    }
    else
    {
-      ProcessMbMessage=1;
+	  ProcessMbMessage=1;
    }
 #endif
    if ( Transmitting ||
@@ -1154,7 +1172,7 @@ void MB_Rx_Interrupt(void)
       //Jignesh RI=0;
       return;
    }
-   MB_StopRtuTimeout();
+//   MB_StopRtuTimeout();
    // Test if number of bytes received is within buffer range, MaxRxBufSize
    if ( mb_data_buffer_len < MB_DATA_BUFFER_SIZE )
    {
@@ -1284,7 +1302,7 @@ void MB_Rx_Interrupt(void)
 #endif
       }
       else
-      {
+      { // RTU mode
          mb_data_buffer[mb_data_buffer_len++]=recChar;
 #ifndef TEST_RTU
          MB_StartRtuTimeout();
@@ -1996,6 +2014,8 @@ void Mb_FactoryDefaults(void)
    timeout_reload_value = 0;
    Ascii_attrib.RxFifo->Number_of_Items  = 26;
    Ascii_attrib.TxFifo->Number_of_Items  = 30;
+   Ascii_attrib.ReceiveSize = 26;
+   Ascii_attrib.TransmitSize = 30;
    DeviceNetObjectRAM.baudrate = 3;   //DRC 3/3/2015 set from 0 to 3 to match cstparam.c custParamInit()
    ModbusConfig.type =  MB_MASTERMODE;
    ModbusConfig.timeout = 2000;
@@ -2080,6 +2100,10 @@ void Mb_FactoryDefaults(void)
 
 void InitMbParam(void)
 {
+	ModAttrib.Mode = RTU_MODE;
+#if 0 //TODO need to enable it
+	if (Read_EE_Byte(EE_MODBUSMODE_ADDR) != 0x55)
+	{
 	   ModAttrib.Mode = Read_EE_Byte(EE_MODBUSMODE_ADDR);
 
 	   Ascii_attrib.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
@@ -2160,7 +2184,11 @@ void InitMbParam(void)
 	   // Add LSB
 	   ModbusConfig.HoldReg_Count += Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1);
 
-   InitAssembly();
+	}
+#endif
+	// InitAssembly(); //TODO need to enable it
+
+	MBport_InitSerialIO();
 	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken 
 	 // out of the InitAssembly() routine. 
    // DRC 3/10/2015 took out so MB buadrate change takes effect after reset as v1.13 does InitSerialIO();

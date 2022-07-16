@@ -10,6 +10,10 @@
 #include "enbl_obj.h"
 #include "dn_init.h"
 
+#ifdef SIM_MODBUS
+#include "_ILX34-MBS/mbport.h"
+#endif
+
 #define EN_BUS_FILTER 2 // X ms before turn enable line is accepted at powerup
 
 extern void UIObjectLEDRefresh (void);
@@ -157,12 +161,47 @@ unsigned char TimerObjectSvcTimer (void)
 
 	uptime++;
 
+
+
 	/*
 	// Every 8ms check conenction timers and update Uon timers and update User Interface
 	*/
 	TimerObjectTick = (TimerObjectTick + 1) % 8;
 	if (!TimerObjectTick)
 	{
+#ifdef SIM_MODBUS
+		static int MB_TimeOut;
+	      if(ModbusConfig.timeout != 0)
+	      {
+	         //			  if ((waiting == 1) && (MB_TimeOut < ModbusConfig.timeout)) MB_TimeOut++;
+	         if (waiting == 1)
+	         {
+	            if (MB_TimeOut < ModbusConfig.timeout) MB_TimeOut++;
+	            else
+	            {
+	               MB_Exception = MODBUS_TIMEOUT_ERROR;
+	               MB_TimeOut = 0;
+	            }
+	         }
+	         else
+	         {
+	            waiting = 0;
+	            MB_TimeOut = 0;
+	         }
+	      }
+	      else
+	      {
+	         waiting = 0;
+	         MB_TimeOut = 0;
+	      }
+
+	      if ( ASCII_Mode_InterChar_TO_ON ) {
+	         Ascii_Mode_InterChar_Time += 8;
+	         if ( Ascii_Mode_InterChar_Time >= (unsigned int) ASCII_MODE_INTER_CHAR_TO_INTERVAL ) {
+	            ASCII_Mode_InterChar_TO_flg = TRUE;
+	         }
+	      }
+#endif
 		/*
 		// Only check the connection timeouts if not in DUPLICATE MAC ID
 		//   or BUSOFF Faults

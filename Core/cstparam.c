@@ -1008,8 +1008,10 @@ void ParamClassReset (void)
 	InitRxTxAssy ();
 #ifdef SIM_MODBUS
 	InitMbParam();
-#endif
+	MBport_RestoreSerialFromEE ();
+#else
 	RestoreSerialFromEE ();
+#endif
 }
 
 // New function called from the EE reset state

@@ -43,7 +43,7 @@ int main (void)
 	DSC_Writes (DSC_LEVEL_INFO, BUILD_TIME);
 	DSC_Writes (DSC_LEVEL_INFO, "\n\r");
 	MX_TIM7_Init ();
-	//
+
 	// Alert if we are coming out of certain reset states
 	if (__HAL_RCC_GET_FLAG (RCC_FLAG_IWDGRST))
 	{
@@ -170,7 +170,7 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 	else if (htim->Instance == TIM15)
 	{
 #ifdef SIM_MODBUS
-		InitRtuTimeout();
+		MB_Rtu_TimedOut();
 #endif
 	}
 }

@@ -3,6 +3,7 @@
 #include "dn_eeprm.h"
 #define EE_HEAP_START EE_END_COMMON_AREA + 1
 //---------->  EEaddr for JDC Revision 6
+
 #ifdef SIM_MODBUS
 #define EE_SERIAL_CHARACTER_FORMAT			EE_HEAP_START+0
 #define EE_SERIAL_BAUDRATE 				  	EE_HEAP_START+1

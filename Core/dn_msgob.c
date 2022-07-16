@@ -1814,12 +1814,12 @@ void Stub_Fill(uchar * str, uchar msg_len)
 		str[0] = 0; // RX byte for handshaking
 		str[1] = 0; //
 		str[2] = trans_id++; // to change transaction id
-		str[3] = 05;
-		str[4] = 01; // length for short string only single byte
-		str[5] = 00;
-		str[6] = 00;
-		str[7] = 00;
-		str[8] = 10;
+		str[3] = 01; //device ID
+		str[4] = 04; // function name for modbus
+		str[5] = 02; //Address LO
+		str[6] = 00; // Address Hi
+		str[7] = 03; //Length LO
+		str[8] = 00; //Length HI
 		if (trans_id % 20 == 0)
 			trans_id = 1;
 	}
@@ -1856,7 +1856,11 @@ void MessageObjectHandleRxPoll (void)
 #define STRING_MSG 			3
 #define MODBUS_MSG			4
 
+#ifdef SIM_MODBUS
 	uchar msg_type = MODBUS_MSG;
+#else
+	uchar msg_type = STRING_MSG;
+#endif
     if(TRUE)  // Has CM_PEENDING
 	{
 		if(TRUE) // Has CNXN_ESTABLISHED

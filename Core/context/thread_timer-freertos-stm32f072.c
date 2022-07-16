@@ -98,7 +98,13 @@ void Thread_Timer (void *argument)
 			temp = 0;
 			MessageObjectHandleRxPoll ();
 		}
-		AppObjectMonitorIO(); //TODO Remove once RX is working vis CAN messages //main_port_serial(); //This function used to test receive buffer.
+
+		if (AppObjectInitialized)
+		{
+			AppObjectMonitorIO(); //TODO Remove once RX is working vis CAN messages //main_port_serial(); //This function used to test receive buffer.
+		}
+#else
+
 #endif
 		CP_Hardware_Handler ();
 

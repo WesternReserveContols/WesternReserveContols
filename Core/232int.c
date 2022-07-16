@@ -139,7 +139,11 @@ void CustParamInit (void);
 void AppObjectInit ()
 {
 	CustParamInit ();
+#ifdef SIM_MODBUS
+	InitMbParam();
+#else
 	SHWInit ();
+#endif
 	InitRxTxAssy ();
 #ifndef NewConnectionAllocationMethod
 	IOCnxnSize[CSI_P_CONS] = CompAssyCSize (); // poll consume size
@@ -753,7 +757,11 @@ void AppObjectGMMConfigSet ()
 		// now let's check the validity of the config data
 		if (!GMM_config_data_valid ())
 		{
+#ifdef SIM_MODBUS
+			Mb_FactoryDefaults();
+#endif
 			AppObjectFactoryDefaults ();
+
 			MessageObjectFormatErrorMessage (INVALID_ATTRIB_VALUE, ADD_CODE_NOT_SPECIFIED);
 		}
 		else
@@ -766,9 +774,12 @@ void AppObjectGMMConfigSet ()
 					  //  in GMMode, data only transmitted when a new msg
 					  //  rcvd from PLC.
 
+#ifdef SIM_MODBUS
+		MBport_InitSerialIO();
+#else
 		// now, let's initialize all the hardware stuff
 		InitSerialIO ();
-
+#endif
 		GMM_pad_buffers (); // seems that the first time thru, the pad byte
 							//  has not been applied.
 

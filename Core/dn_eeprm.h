@@ -49,7 +49,7 @@
 #define EE_BL_PROD_CODE_LO 0x39 // brand label Device Type
 #define EE_BL_PROD_CODE_HI 0x3A
 
-#define EE_END_COMMON_AREA 0x4F
+#define EE_END_COMMON_AREA 0x4F // 0x4F
 
 #ifndef EEPROM_SIZE
 // I changed this from 512 defaultr to 128 default and put ee size heree instead of
@@ -57,7 +57,9 @@
 // I also put this variable in all of the spots where the ee size is used.
 // er 11/26/01
 // Moved back to header file - JLK,
-#define EEPROM_SIZE 128
+
+#define EEPROM_SIZE 128 // 152 //Updated for the MODBUS PARA.
+
 #endif
 
 // OTHER DEFINITIONS

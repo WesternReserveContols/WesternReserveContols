@@ -119,6 +119,9 @@ SOFT_RESET:
 	KICK_WDOG ();
 
 
+	/*
+	// Initialize application objects
+	*/
 #ifdef SIM_CONSUME
 	InitApplicationObjects ();
 	AppObjectInitialized = TRUE;
@@ -140,13 +143,7 @@ SOFT_RESET:
 	if (MessageObjectRAM.bCommParamChange)
 		goto PRE_SOFT_RESET;
 
-	/*
-	// Initialize application objects
-	*/
-#ifndef SIM_CONSUME
-	InitApplicationObjects ();
-	AppObjectInitialized = TRUE;
-#endif
+
 
 DO_DUPMACS:
 	if (DUPLICATEMACFAIL != UIObjectRAM.cHealthState)

@@ -21,8 +21,9 @@
 #define FALSE 0
 #endif
 
-#define MAX_MODBUS_MESSAGE_SIZE 		32 //TODO 255
+#define MAX_MODBUS_MESSAGE_SIZE 		255
 #define MB_DATA_BUFFER_SIZE MAX_MODBUS_MESSAGE_SIZE //size of the modbus data buffer
+#define ASCII_MODE_INTER_CHAR_TO_INTERVAL  1000    // millisec
 
 #define ASCII_MODE 0
 #define RTU_MODE 1
@@ -201,7 +202,9 @@ extern void InitAssembly(void);
 extern void main_port_serial (void);
 extern void Mb_FactoryDefaults(void);
 extern void InitRtuTimeout(void);
-
+extern void MB_Rtu_TimedOut(void);
+extern void MBport_InitSerialIO(void);
+extern void MBport_RestoreSerialFromEE (void);
 // Get Functions
 void GetFraming(MSG  * msg);
 void GetBaudRate(MSG  * msg);
@@ -239,7 +242,12 @@ void MB_SetHoldReg_Count(MSG  * msg);
 extern unsigned char xdata, produce_buffer[MAX_MODBUS_MESSAGE_SIZE];
 extern unsigned char produce_buffer_len;
 extern unsigned char MB_Status,MB_Exception;
-
+extern unsigned int Ascii_Mode_InterChar_Time;       // millisec
+extern unsigned char ASCII_Mode_InterChar_TO_flg; // set to true whenever a timeout occurs
+extern unsigned char ASCII_Mode_InterChar_TO_ON;  // set to true when ASCII_MODE to turn on timer
+extern unsigned char  MB_Status, MB_Exception;
+extern int waiting;
+extern MB_CONFIG	ModbusConfig;
 
 #define SOFT_RESET_ACTIVE 0xA5
 extern unsigned char SoftReset;

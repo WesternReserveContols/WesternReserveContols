@@ -25,6 +25,7 @@ void MX_TIM7_Init (void)
 	}
 
 	HAL_TIM_Base_Start_IT (&htim7);
+
 }
 
 void HAL_TIM_Base_MspInit (TIM_HandleTypeDef *tim_baseHandle)
@@ -58,33 +59,58 @@ void HAL_TIM_Base_MspDeInit (TIM_HandleTypeDef *tim_baseHandle)
 
 void MX_TIM15_Init (int period)
 {
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+	RCC_ClkInitTypeDef clkconfig;
+	uint32_t		   uwTimclock		= 0;
+	uint32_t		   uwPrescalerValue = 0;
+	uint32_t		   pFLatency;
 
-	htim15.Instance				 = TIM15;
-	htim15.Init.Prescaler		 = 47;
-	htim15.Init.CounterMode		 = TIM_COUNTERMODE_UP;
-	htim15.Init.Period			 = period;
-	htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init (&htim15) != HAL_OK)
+	/*Configure the TIM6 IRQ priority */
+	HAL_NVIC_SetPriority (TIM15_IRQn, 0, 0);
+
+	/* Enable the TIM6 global Interrupt */
+	HAL_NVIC_EnableIRQ (TIM15_IRQn);
+
+	NVIC_GetPendingIRQ(TIM15_IRQn);
+
+	NVIC_ClearPendingIRQ (TIM15_IRQn);
+
+	/* Enable TIM6 clock */
+	__HAL_RCC_TIM15_CLK_ENABLE ();
+
+	/* Get clock configuration */
+	HAL_RCC_GetClockConfig (&clkconfig, &pFLatency);
+
+	/* Compute TIM15 clock */
+	uwTimclock = 2 * HAL_RCC_GetPCLK1Freq ();
+
+	/* Compute the prescaler value to have TIM6 counter clock equal to 1MHz */
+	uwPrescalerValue = (uint32_t) ((uwTimclock / 1000000) - 1);
+
+	/* Initialize TIM6 */
+	htim15.Instance = TIM15;
+
+	/* Initialize TIMx peripheral as follow:
+	+ Period = [(TIM15CLK/1000) - 1]. to have a (1/1000) s time base.
+	+ Prescaler = (uwTimclock/1000000 - 1) to have a 1MHz counter clock.
+	+ ClockDivision = 0
+	+ Counter direction = Up
+	*/
+	htim15.Init.Period		 = (period); //10000 - 1; //for 10ms
+	htim15.Init.Prescaler	 = uwPrescalerValue*100;
+	htim15.Init.CounterMode	 = TIM_COUNTERMODE_UP;
+	htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim15.Init.RepetitionCounter = 0;
+
+	if (HAL_TIM_Base_Init (&htim15) == HAL_OK)
 	{
-		Error_Handler ();
+//		__HAL_TIM_CLEAR_IT(&htim15, TIM_IT_UPDATE);
+//		HAL_TIM_Base_Start_IT (&htim15);
 	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode	  = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization (&htim15, &sMasterConfig) != HAL_OK)
-	{
-		Error_Handler ();
-	}
-
-    /* TIM17 interrupt Init */
-    HAL_NVIC_SetPriority(TIM15_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(TIM15_IRQn);
-	HAL_TIM_Base_Start_IT (&htim15);
-
 }
 
 void MX_TIM15_Start (void)
 {
+	__HAL_TIM_CLEAR_IT(&htim15, TIM_IT_UPDATE);
 	HAL_TIM_Base_Start_IT (&htim15);
 }
 

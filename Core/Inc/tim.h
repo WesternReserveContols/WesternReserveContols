@@ -10,6 +10,6 @@ void MX_TIM7_Init(void);
 void MX_TIM15_Init (int period);
 void MX_TIM15_Start (void);
 void MX_TIM15_Stop (void);
-
+void MX_TIM15_Set_Counter (int period);
 
 #endif /*__ tim_H */
