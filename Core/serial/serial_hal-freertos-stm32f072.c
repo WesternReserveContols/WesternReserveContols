@@ -9,7 +9,9 @@
 #include "serial_hal.h"
 #include "serial_config.h"
 
-
+#ifdef SIM_MODBUS
+#include "_ILX34-MBS/mbport.h"
+#endif
 /////////////////////////////
 // Variables
 
@@ -107,12 +109,14 @@ serial_status SH_Set_Parameters (void)
 	// We are touching Ascii shared variable
 	SH_Disable_Interrupts ();
 	//
+#ifndef SIM_MODBUS
 	if (Ascii.flowcontrol != 0)
 	{
 		// flow control not supported, invalid state
 		// Just warn here, no error
 		DSC_Writes (DSC_LEVEL_INFO, "Flow Control not Supported\n\r");
 	}
+#endif
 	//
 	// framing define will set Data, parity, and stop bits
 #ifdef SIM_MODBUS
@@ -126,8 +130,8 @@ serial_status SH_Set_Parameters (void)
 		//  We will need to mask off one stop bit out of the 8 data bits
 		DSC_Writes (DSC_LEVEL_INFO, "7N2\r\n");
 		sh_flag_7N2	   = 1;
-		sh_word_length = UART_WORDLENGTH_8B;
-		sh_stop_bits   = UART_STOPBITS_2;
+		sh_word_length = UART_WORDLENGTH_7B; //TODO changed from UART_WORDLENGTH_8B; to UART_WORDLENGTH_7B to make it workable
+		sh_stop_bits   = UART_STOPBITS_2; //TODO changed from UART_STOPBITS_1; to UART_STOPBITS_2 to make it workable
 		sh_parity	   = UART_PARITY_NONE;
 		break;
 	case FRAME_7E1:

@@ -13,10 +13,6 @@
 
 #include "fifo.h"
 
-#ifdef SIM_MODBUS
-#include "_ILX34-MBS/mbport.h"
-#endif
-
 #define TIMEOUT_ERROR	 0xD0
 #define PARITY_ERROR	 0xD1
 #define TX_FIFO_TOGGLE	 0x10
@@ -86,7 +82,6 @@ typedef struct
 	FIFO_CONTEXT  TxFifo;
 } ASCIISTRUCT;
 
-extern ASCIISTRUCT Ascii;
 // array in serial_config.c to map our baud rate.
 extern unsigned int BaudDiv[8];
 
@@ -94,6 +89,7 @@ extern unsigned int BaudDiv[8];
 extern ASCIISTRUCT Ascii;
 
 void SerialTransmitInterrupt (void);
+
 extern void InitSerialIO (void);
 
 #endif /* SERIAL_CONFIG_H */

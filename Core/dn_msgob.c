@@ -95,8 +95,9 @@ extern unsigned char size_of_mainloopassydata;
 extern unsigned char TxStrLen;
 extern unsigned char type; // xmt data type
 extern BOOL			 AppObjectCOS_Bit;
+#ifndef SIM_MODBUS
 extern unsigned char current_status_byte (void);
-
+#endif
 // values used by 'type'
 #define ARRAY		 0
 #define SHORT_STRING 1
@@ -185,8 +186,9 @@ void GMM_set_msg_pointers (void)
 unsigned char local_status_byte (void)
 {
 	unsigned char tempb;
-
+#ifndef SIM_MODBUS
 	tempb = current_status_byte ();
+#endif
 	if (GMMFragError)
 		tempb |= SB_FRAG_ERROR;
 

@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "memopt.h"
-#include "ee_adr.h"
+#include "_ILX34-MBS/ee_adr.h"
 #include "msg.h"
 #include "dn_def.h"
 #include "dn_cnobj.h"

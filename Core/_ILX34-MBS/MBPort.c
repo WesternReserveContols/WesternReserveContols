@@ -165,6 +165,8 @@ int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
 
+unsigned int BaudDiv[8] = { BAUD96, BAUD12, BAUD24, BAUD48, BAUD19, BAUD38 };
+
 MODBUS_ATTRIB ModAttrib = {
    0,
    ASCII_MODE,
@@ -172,7 +174,7 @@ MODBUS_ATTRIB ModAttrib = {
 };
 
 ASCII_ATTRIB Ascii_attrib = {
-   3, //TODO 0 to 3 changed for testing //Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
+   3, //chnaged from 0 to 3 for testing MODBUS//Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
    7, //data bits
    0,	//baud rate index to BaudDiv[]
   10,	//delimiter
@@ -291,109 +293,12 @@ void MBport_InitSerialIO(void)
 
 BYTE RecvChar(void)
 {
-
-#if 0 //Jignesh TODO add recevie char code fro STM32
-   BYTE pb,chr;
-   // Jignesh chr = SBUF;
-
-   parityChkRslt = 0;
-
-   if(Ascii.DataBits == 7)
-   {
-      if(Ascii.Framing == FRAME_8N1);         //special case of 8N1
-      else if(Ascii.Parity == NONE) chr &= 0x7F;         //no parity
-      else
-      {
-         // load accumulator with chr byte excluding the parity int to set the parity
-         // of only the data in the PSW register 
-         //Jignesh ACC = (chr & 0x7F);
-         //Jignesh pb = PSW;                                         // get PSW with the (even) parity int in it
-         if(Ascii.Parity == ODD) pb=~pb;            // invert the PSW including the parity int to convert to ODD parity
-         if(pb & 1)pb = 0x80;                              // if parity int set convert pb to match parity int for original chr
-         else pb = 0;                                      // make it zero for parity int = 0
-         if(pb != (chr & 0x80)) {
-            parityChkRslt = PARITY_ERROR;
-//            g_status = PARITY_ERROR;     //if parity bits not equal
-         }
-         chr &= 0x7F;
-      }
-   }
-   else //in 8 bits mode
-   {
-      if(Ascii.Parity == NONE)  //no parity
-      {
-         ;
-      }
-      else
-      {
-         //Jignesh ACC=chr;                                       //generate parity
-         // Jignesh pb = PSW;                                         //get the whole register
-         if(Ascii.Parity == ODD) pb=~pb;            //invert the parity for ODD
-         if(pb & 1)pb = 0x04;                              //if parity set make it $04
-         else pb = 0;                                      //make it zero
-         //Jignesh if(pb != (SCON & 0x04)) {
-         //Jignesh   parityChkRslt = PARITY_ERROR;
-         //Jignesh }
-      }
-   }
-   return(chr);
-#endif
    return 0;
 }
 
 void XmitChar(BYTE chr)
 {
-
 	SH_Put_Char(chr);
-
-#if 0 //Jigs
-   BYTE pb, dt7;
-
-   if(Ascii.DataBits == 7)
-   {
-      //Jignesh if(Ascii.Framing == FRAME_8N1) SBUF = chr;         //special case of 8N1  ILX-10
-      //Jignesh else if(Ascii.Parity == NONE)
-#ifdef RICK_SIM
-         //Jignesh SBUF = chr;
-#else
-         //Jignesh SBUF = chr | 0x80;         //add 2nd stop int
-#endif
-      //Jignesh else
-      {//get the EVEN parity
-#if 0 //Jignesh
-    	 dt7 = chr & 0x7F;
-         ACC = dt7;                                 //make sure int 7 is zero
-         pb = PSW;											//get the whole register
-         if(Ascii.Parity == ODD) pb=~pb;                      //invert the parity for ODD
-         if(pb & 1) pb = 0x80;                             //convert to int 7
-         else pb = 0;
-         SBUF = chr | pb;                                  //put chr and parity together
-#endif //Jignesh
-      }
-   }
-   else //in 8 bits mode
-   {
-      if(Ascii.Parity == NONE)
-      {
-         //Jignesh TB8 = 1;	 //add 2nd stop int
-         //Jignesh SBUF = chr;//send whole character
-      }
-	   else //in real 8 int mode
-	   {
-#if 0 //Jignesh
-		   ACC = chr;                                                     //get the parity
-	      pb = PSW;                                              //get the whole register
-	      if(Ascii.Parity == ODD) pb=~pb;                     //invert the parity for ODD
-	      if(pb & 1) TB8 = 1;                                        //this is parity bit
-	      else TB8 = 0;
-	      SBUF = chr;
-#endif //Jignesh
-	   }
-#ifdef RICK_SIM
-         putchar(chr);
-#endif
-   }
-#endif // jigs
 }
 
 #define BUFFER_OVERFLOW_ERR_BIT	1
@@ -402,17 +307,6 @@ unsigned char next_recieve_status; //=0;
 void MB_Rx_Interrupt(void);
 void MB_Tx_Interrupt(void);
 
-#if 0
-void SerialI(void) interrupt	4
-{
-   if (RI)
-   {
-      TR0 = 0;//stop timer
-      MB_Rx_Interrupt();
-   }
-   if (TI) MB_Tx_Interrupt();
-}
-#endif
 
 //Application intterface functions needed for the group 2 allocate
 // ILX-8  This is where the Procuce and Consume conneciton size are set
@@ -1112,9 +1006,7 @@ static unsigned char rtubyte=0;
 static unsigned char rtucnt=0;
 #define TEST_RTU
 #endif
-static unsigned char rtubyte=0;
-static unsigned char rtucnt=0;
-//#define TEST_RTU //TODO Test
+
 
 unsigned char StIn,CrIn;
 unsigned char err;
@@ -1717,7 +1609,7 @@ void SetFraming(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-	   	 //Jignesh FragMsg=FALSE;
+	   	 FragMsg=FALSE;
 		 return;
 	 }
    else if(msg->buf[0]>8)
@@ -1741,7 +1633,7 @@ void SetBaudRate(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-	   //Jignesh FragMsg = FALSE;
+	   FragMsg = FALSE;
 	   return;
 	 }
 
@@ -1838,7 +1730,7 @@ void MB_SetType(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
 	 {
-	   	  //Jignesh  FragMsg=FALSE;
+	   	 FragMsg=FALSE;
 		 return;
 	 }
    ModbusConfig.type = msg->buf[0];
@@ -1850,12 +1742,12 @@ void MB_SetTimeout(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,4,4))
 	 {
-	   	 //Jignesh FragMsg=FALSE;
+	     FragMsg=FALSE;
 		 return;
 	 }
    // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first  
    ModbusConfig.timeout = (long) (msg->buf[0] + (msg->buf[1] << 8)+(msg->buf[2] << 16)+(msg->buf[3] << 24));
-   msg->buf[3]=ModbusConfig.timeout >> 24; 
+   msg->buf[3]=ModbusConfig.timeout >> 24;
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR,msg->buf[3]);
    msg->buf[2]=ModbusConfig.timeout >> 16; 
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR,msg->buf[2]);
@@ -1864,7 +1756,7 @@ void MB_SetTimeout(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR+1,msg->buf[0]);  // PLC LSB stored last in memory 
 	msg->buflen=0;
    MessageObjectFormatSuccessMessage();
-   //Jignesh FragMsg=FALSE;
+   FragMsg=FALSE;
 }
 
 void MB_SetSlaveID(MSG  * msg)
@@ -2012,8 +1904,6 @@ void Mb_FactoryDefaults(void)
    Ascii_attrib.Framing = 0;		// 7 N 2
    Ascii_attrib.BaudRate = 0; 	//19200
    timeout_reload_value = 0;
-   Ascii_attrib.RxFifo->Number_of_Items  = 26;
-   Ascii_attrib.TxFifo->Number_of_Items  = 30;
    Ascii_attrib.ReceiveSize = 26;
    Ascii_attrib.TransmitSize = 30;
    DeviceNetObjectRAM.baudrate = 3;   //DRC 3/3/2015 set from 0 to 3 to match cstparam.c custParamInit()
@@ -2039,8 +1929,8 @@ void Mb_FactoryDefaults(void)
    Write_EE_Byte(EE_TIMEOUT_HI_ADDR,timeout_reload_value >> 8);
    //	Write_EE_Byte(EE_FAULTACT_ADDR, FaultAction);
    //	Write_EE_Byte(EE_IDLEACT_ADDR, IdleAction);
-   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii.TxFifo->Number_of_Items);
-   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii.RxFifo->Number_of_Items);
+   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TransmitSize);
+   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.ReceiveSize);
    Write_EE_Byte(EE_DNETBAUD_ADDR, DeviceNetObjectRAM.baudrate);  // DRC 3/4/2015 should this be NVS_BAUD_RATE ?
    Write_EE_Byte(MB_TYPE_NVRAM_ADDR, ModbusConfig.type);
    Write_EE_Byte(MB_SLAVEID_NVRAM_ADDR, 0);                       // DRC 4/6/2015 MSB should always be 0 it only uses LSB
@@ -2092,21 +1982,21 @@ void Mb_FactoryDefaults(void)
    //LSB last
    Write_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1,ModbusConfig.HoldReg_Count & 0xFF);
 
-   //Jignesh Write_EE_Byte(EE_Produce_Path_Id,0x65);  // decimal 101
-   //Jignesh Write_EE_Byte(EE_Consume_Path_Id,0x66);  // decimal 102
-   Write_EE_Byte(101,0x65);  // decimal 101
-   Write_EE_Byte(102,0x66);  // decimal 102
+   Write_EE_Byte(EE_Produce_Path_Id,0x65);  // decimal 101
+   Write_EE_Byte(EE_Consume_Path_Id,0x66);  // decimal 102
+//   Write_EE_Byte(101,0x65);  // decimal 101
+//   Write_EE_Byte(102,0x66);  // decimal 102
 }
 
 void InitMbParam(void)
 {
-	ModAttrib.Mode = RTU_MODE;
-#if 0 //TODO need to enable it
 	if (Read_EE_Byte(EE_MODBUSMODE_ADDR) != 0x55)
 	{
 	   ModAttrib.Mode = Read_EE_Byte(EE_MODBUSMODE_ADDR);
+//	   ModAttrib.Mode = RTU_MODE; //TODO make it enable to test with RTU. Also to make RTU working make Framing 3 (8N1)
 
 	   Ascii_attrib.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
+//	   Ascii_attrib.Framing = 3; // TODO hard coded for value 3 means 8N1 for UART framing setting.
 
 	   Ascii_attrib.BaudRate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
 
@@ -2185,8 +2075,8 @@ void InitMbParam(void)
 	   ModbusConfig.HoldReg_Count += Read_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1);
 
 	}
-#endif
-	// InitAssembly(); //TODO need to enable it
+
+	InitAssembly();
 
 	MBport_InitSerialIO();
 	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken 
@@ -2896,122 +2786,4 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
    return err;
 }
 
-
-#if 0
-void SerialTransmitInterrupt (void)
-{
-	MB_Tx_Interrupt();
-}
-
-void ToggleAndLockSyncBits (void)
-{
-	//TODO
-}
-
-
-void my_putc (unsigned char portnum, char chr)
-{
-	//TODO
-}
-
-void UnlockAndUpdateSyncBits (void)
-{
-	//TODO
-}
-
-bool isparityerror (unsigned char portnum)
-{
-	//TODO
-	return 0;
-}
-
-void clearparityerror (unsigned char portnum)
-{
-	//TODO
-}
-
-void *AsciiFunc (MSG *msg)
-{
-	//TODO
-}
-void SHWMain (void)
-{
-
-	// Ascii.status MUST be syncronized
-	// with the interupts
-	//  if(START_4002)
-	/*
-	if (IOCnxnIsPOLLED == IO_CNXN_IS_POLLED)
-	{
-		//#ifdef START_4002
-
-		char chr;
-		if (TxInProgress && TxEmpty)
-		{
-			DisableInterrupts ();
-			if (FifoPop (Ascii.TxFifo, &chr))
-			{
-				EnableInterrupts ();
-				_putc_ (0, chr);
-			}
-			else
-			{
-				EnableInterrupts ();
-				IO_SET_SerialTxRx (TxRx_RECV);
-				if (!lock)
-					Ascii.status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
-				TxInProgress = 0;
-			}
-		}
-	} // END 4002
-	  //#endif
-	   */
-
-	DisableInterrupts ();
-	if (oldasts != Ascii.status)
-	{
-		TriggerCOS ();
-#ifdef GMM
-#define GMM_ERR_BITS (PARITY_ERROR_BIT | RX_FIFO_OVERFLOW | TX_FIFO_OVERFLOW)
-		// Have to check on status changes for GMM
-		// First find bits that have changed - then check if we're
-		//   interested in them.
-		if (GMMRAM.active && ((Ascii.status ^ oldasts) & GMM_ERR_BITS))
-		{
-			// only one channel - bit gets set or cleared for that chan
-			if (Ascii.status & GMM_ERR_BITS)
-			{
-				// set 'new status' bit and 'a chan has error' bit
-				GMMRAM.IOStatus = 0x03;
-				// set bit for chan 1 error
-				GMMRAM.channelStatus[0] = 0x01;
-			}
-			else
-			{
-				// set 'new status' bit only
-				GMMRAM.IOStatus = 0x02;
-				// clear bit for chan 1 error
-				GMMRAM.channelStatus[0] = 0x00;
-			}
-
-			GMM_ser_data_rcvd (); // cause new status to be transmitted
-		}
-#endif // GMM
-		oldasts = Ascii.status;
-	}
-	EnableInterrupts ();
-
-	DisableInterrupts ();
-	if (!FifoSize (Ascii.RxFifo))
-	{
-		// fifo is now empty
-		// Ascii.status MUST be syncronized
-		// with the interupts
-		Ascii.status &= ~(RX_FIFO_OVERFLOW);
-		Ascii.status &= ~IO_CNXN_IS_POLLED;
-		Ascii.status |= IOCnxnIsPOLLED; // 4003
-	}
-	EnableInterrupts ();
-}
-#endif
 // end of file

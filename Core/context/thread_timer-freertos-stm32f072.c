@@ -11,7 +11,7 @@
 #include "app_main.h"
 #include "can.h"
 #include "dsc.h"
-#include "ee_adr.h"
+#include "_ILX34-MBS/ee_adr.h"
 
 #include <inttypes.h>
 #include <math.h>
@@ -101,7 +101,7 @@ void Thread_Timer (void *argument)
 
 		if (AppObjectInitialized)
 		{
-			AppObjectMonitorIO(); //TODO Remove once RX is working vis CAN messages //main_port_serial(); //This function used to test receive buffer.
+			AppObjectMonitorIO(); //TODO Remove once RX is working via CAN messages //main_port_serial(); //This function used to test receive buffer.
 		}
 #else
 

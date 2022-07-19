@@ -49,8 +49,11 @@
 #define EE_BL_PROD_CODE_LO 0x39 // brand label Device Type
 #define EE_BL_PROD_CODE_HI 0x3A
 
-#define EE_END_COMMON_AREA 0x4F // 0x4F
-
+#ifdef SIM_MODBUS
+#define EE_END_COMMON_AREA 0x3B // 0x4F
+#else
+#define EE_END_COMMON_AREA 0x4F
+#endif
 #ifndef EEPROM_SIZE
 // I changed this from 512 defaultr to 128 default and put ee size heree instead of
 // header to allow configuration on command line.. (this is the only module that needs to know
