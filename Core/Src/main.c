@@ -169,9 +169,7 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 	}
 	else if (htim->Instance == TIM15)
 	{
-#ifdef SIM_MODBUS
 		MB_Rtu_TimedOut();
-#endif
 	}
 }
 

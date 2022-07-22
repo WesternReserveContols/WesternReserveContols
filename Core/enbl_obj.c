@@ -1,13 +1,13 @@
-#include "c505c.h"
-#include "dn_def.h"
-#include "dn_eeprm.h"
-#include "app_objs.h"
-#include "dn_msgob.h"
-#include "dn_dnobj.h"
-#include "dn_uiobj.h"
-#include "enbl_obj.h"
-#include "dn_init.h"
-#include "dn_cnobj.h"
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_cnobj.h>
+#include <dn_def.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
+#include <dn_uiobj.h>
+#include <enbl_obj.h>
 
 #define CMD_GENERIC \
 	0					// broadcast type msg with no data

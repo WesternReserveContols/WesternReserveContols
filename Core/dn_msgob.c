@@ -1,19 +1,19 @@
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_ahobj.h>
+#include <dn_cnobj.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_idobj.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
+#include <enbl_obj.h>
+#include <nvs_obj.h>
 #include <string.h>
 
-#include "app_objs.h"
-#include "dn_msgob.h"
-#include "c505c.h"
-#include "dn_dnobj.h"
-#include "dn_idobj.h"
-#include "dn_cnobj.h"
-#include "dn_ahobj.h"
-#include "dn_uiobj.h"
-#include "dn_init.h"
-#include "dn_eeprm.h"
-#include "enbl_obj.h"
-#include "nvs_obj.h"
-#include "dn_tmobj.h"
-#include "xdatacpy.h"
+#include <xdatacpy.h>
 
 
 #define CAN_INT_DISABLE (CP_Set_ECAN (0))
@@ -95,9 +95,8 @@ extern unsigned char size_of_mainloopassydata;
 extern unsigned char TxStrLen;
 extern unsigned char type; // xmt data type
 extern BOOL			 AppObjectCOS_Bit;
-#ifndef SIM_MODBUS
+
 extern unsigned char current_status_byte (void);
-#endif
 // values used by 'type'
 #define ARRAY		 0
 #define SHORT_STRING 1
@@ -186,9 +185,8 @@ void GMM_set_msg_pointers (void)
 unsigned char local_status_byte (void)
 {
 	unsigned char tempb;
-#ifndef SIM_MODBUS
+
 	tempb = current_status_byte ();
-#endif
 	if (GMMFragError)
 		tempb |= SB_FRAG_ERROR;
 

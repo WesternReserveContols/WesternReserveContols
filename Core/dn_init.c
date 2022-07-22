@@ -1,18 +1,17 @@
-#include "c505c.h"
-#include "dn_init.h"
-#include "dn_dnobj.h"
-#include "dn_cnobj.h"
-#include "dn_idobj.h"
-#include "dn_ahobj.h"
-#include "dn_tmobj.h"
-#include "dn_uiobj.h"
-#include "enbl_obj.h"
-#include "app_objs.h"
-#include "dn_msgob.h"
-#include "dn_eeprm.h"
-#include "nvs_obj.h"
-
 #include "serial_config.h"
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_ahobj.h>
+#include <dn_cnobj.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_idobj.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
+#include <enbl_obj.h>
+#include <nvs_obj.h>
 
 //***********************************************************************
 //
@@ -476,9 +475,7 @@ void InitFactoryDefaults ()
 {
 	DeviceNetObjectFactoryDefaults ();
 	DeviceNetObjectSaveEEPROM ();
-#ifdef SIM_MODBUS
 	Mb_FactoryDefaults();
-#endif
 	AppObjectFactoryDefaults ();
 	AppObjectSaveEEPROM ();
 }

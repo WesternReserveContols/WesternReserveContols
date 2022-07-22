@@ -142,10 +142,8 @@ void ParseAndSendTxStr (unsigned char a, unsigned char UseDelim)
 	bool UseExcludeAlgor = UseDelim && TxStrDelimMode == EXCLUDE_DELIMITER;
 	bool UseIncludeAlgor = UseDelim && TxStrDelimMode == INCLUDE_DELIMITER;
 
-#ifndef SIM_MODBUS
 	if (a)
-		ToggleAndLockSyncBits (); //TODO ASCII code so disabled it.
-#endif
+		ToggleAndLockSyncBits ();
 	while (a--)
 	{							  // a contains the number of characters in the buffer left to copy
 		c = *(src + flipstate--); // get a byte out of the curent word
@@ -170,7 +168,6 @@ void ParseAndSendTxStr (unsigned char a, unsigned char UseDelim)
 
 void SRecProtSetTxRec (MSG *msg)
 {
-#ifdef SIM_MODBUS
 	if(!DnCheckAttrLen(msg,1,1))
 		return;
 	if(txrecnum == msg->buf[0])
@@ -179,23 +176,7 @@ void SRecProtSetTxRec (MSG *msg)
 		return;
 
 	txrecnum=msg->buf[0];
-#else
-	if (!DnCheckAttrLen (msg, 1, 1))
-		return;
-	if (txrecnum != msg->buf[0])
-	{
-		if (msg->class == 0xf)
-		{
-			ParseAndSendTxStr (((ParamUseTxDelimAlgor || txrecstr[0] < paramtxlen) ? (txrecstr[0]) : (paramtxlen)),
-							   (unsigned char)ParamUseTxDelimAlgor);
-		}
-		else
-			ParseAndSendTxStr (txrecstr[0], (unsigned char)UseTxDelimAlgor);
-	}
 
-	txrecnum	= msg->buf[0];
-	msg->buflen = 0;
-#endif
 }
 
 void SRecProtSetTxStr (MSG *msg)

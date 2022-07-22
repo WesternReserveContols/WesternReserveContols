@@ -1,10 +1,10 @@
-#include "app_objs.h"
-#include "dn_uiobj.h"
-#include "c505c.h"
-#include "dn_eeprm.h"
-#include "dn_dnobj.h"
-#include "dn_init.h"
-#include "dn_msgob.h"
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
+#include <dn_uiobj.h>
 #define SHIFTING_LEDS_SUCK
 #define FLASHTIME 62 // 500 ms  (at 8ms resolution)
 

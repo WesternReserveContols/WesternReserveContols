@@ -8,8 +8,8 @@
 //             Copyright (c) 1997 Allen-Bradley Co.
 //***********************************************************************
 
-#include "std.h"
-#include "dn_def.h"
+#include <dn_def.h>
+#include <std.h>
 
 // the following cnxn sizes are product-independent
 #define STROBE_IO_CONS_SIZE 8 // this is always 8

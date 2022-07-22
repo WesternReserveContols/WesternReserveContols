@@ -64,7 +64,7 @@ void			   AssyPFunc (MSG *msg)
 	// if(AssyProdRecCounter)
 	*(prodbuf++) = RRecNum;
 	msg->buflen++;
-	*(prodbuf++) = RRecStatus | TxSts | Ascii.status;
+	*(prodbuf++) = RRecStatus | TxSts | Ascii.Status;
 	msg->buflen++;
 	// pad for logix complient crap!
 	if ((RRecRxStrType == SHORT_STRING) || (RRecRxStrType == ARRAY))
@@ -236,47 +236,6 @@ void SRecProtSetTxStrDelimiterMode (MSG *msg);
 void SRecProtSetSwap (MSG *msg);
 void SRecProtSetMode (MSG *msg);
 
-#ifdef SIM_MODBUS
-#define SETUP_CONFIG_MESSAGE  \
-	if (!(len--) || g_status) \
-		return;               \
-	ConfigMsg.service = 0x10; \
-	ConfigMsg.buflen  = 1;    \
-	buf[0]				  = *(ptr++);
-
-#define SETUP_CONFIG_MESSAGE_1 \
-	if(!(len--) || g_status)	\
-	return;						\
-	ConfigMsg.service=0x10;ConfigMsg.buflen=1;	\
-	ConfigMsg.buf[0]=*ptr++;      // ILX-9
-
-#define SETUP_CONFIG_MESSAGE_2 \
-	if(!len || g_status) 		\
-	return; 					\
-	len=len-2;					\
-	ConfigMsg.service=0x10;ConfigMsg.buflen=2;	\
-	ConfigMsg.buf[0]=*ptr++;ConfigMsg.buf[1]=*ptr++;
-
-#define SETUP_CONFIG_MESSAGE_4 \
-	if(!len || g_status)	\
-	return;					\
-	len=len-4;				\
-	ConfigMsg.service=0x10;	\
-	ConfigMsg.buflen=4;		\
-	ConfigMsg.buf[0]=*(ptr++); \
-	ConfigMsg.buf[1]=*(ptr++);	\
-	ConfigMsg.buf[2]=*(ptr++);	\
-	ConfigMsg.buf[3]=*(ptr++);
-
-#define AFTER_CONFIG_MESSAGE_1 \
-	if(g_status)\
-	return; \
-	*(ptr++) = buf[0]; \
-	len++;
-#define AFTER_CONFIG_MESSAGE_2 if(g_status)return; \
-	*(ptr++)=buf[0];*(ptr++)=buf[1];len=len+2;
-#define AFTER_CONFIG_MESSAGE_4 if(g_status)return;*(ptr++)=buf[0];*(ptr++)=buf[1];*(ptr++)=buf[2];*(ptr++)=buf[3];len=len+4;
-#else
 #define SETUP_CONFIG_MESSAGE  \
 	if (!(len--) || g_status) \
 		return;               \
@@ -293,164 +252,11 @@ void SRecProtSetMode (MSG *msg);
 		return;                \
 	*(ptr++) = buf;            \
 	len++;
-#endif
+
 
 void AssyConfigFunc (MSG *msg)
 {
-#ifdef SIM_MODBUS
-	MSG ConfigMsg;
-	unsigned char *ptr = msg->buf;
-	unsigned char len=msg->buflen;
-	unsigned char buf[2],idx;
-	ConfigMsg.buf = &buf[0];
-	if(msg->attribute!=3)
-	{
-		 g_status=0x14;
-		 return;
-	}
-	// get the record number
-	g_status=0;
-	  if(msg->service==0x0e)//get
-	  {
-		  len=6;
-			for(idx=0;idx<len;idx++) *ptr++=0;//zero RA Reserved & Reserved1 bytes(4+2 bytes) ALSO points the ptr to the 1st valid config position (Framing)
-	    ConfigMsg.buflen=len;
-	    SETUP_CONFIG_MESSAGE   //Reserved DINT jtm 09/19/13 inserted 4 byte space as per new spec
-		  AFTER_CONFIG_MESSAGE_4
 
-	    SETUP_CONFIG_MESSAGE   //Reserved INT  jtm 09/19/13 inserted 2 byte space as per new spec
-		  AFTER_CONFIG_MESSAGE_2
-
-		  SETUP_CONFIG_MESSAGE
-		  GetFraming(&ConfigMsg);       //Framing
-		  AFTER_CONFIG_MESSAGE_1
-
-		  SETUP_CONFIG_MESSAGE
-		  MB_GetProtocol(&ConfigMsg);   //Protocol ASCII/RTU
-		  AFTER_CONFIG_MESSAGE_1
-
-			SETUP_CONFIG_MESSAGE
-		  GetConsumeAssyNum(&ConfigMsg);//Consume Assembly number
-		  AFTER_CONFIG_MESSAGE_1
-
-			SETUP_CONFIG_MESSAGE
-	  	GetBaudRate(&ConfigMsg);      //Baudrate
-		  AFTER_CONFIG_MESSAGE_1
-
-	  	SETUP_CONFIG_MESSAGE
-		  MB_GetType(&ConfigMsg);		    //Type Master/Slave
-		  AFTER_CONFIG_MESSAGE_1
-
-			SETUP_CONFIG_MESSAGE
-	  	GetProduceAssyNum(&ConfigMsg);//Produce Assembly number
-		  AFTER_CONFIG_MESSAGE_1
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetTimeout(&ConfigMsg);//Timeout 4 bytes allocated, but using 2 least significant bytes
-		  AFTER_CONFIG_MESSAGE_4    //jtm 09-18-13 Changed to 4 bytes as per new spec
-
-		  SETUP_CONFIG_MESSAGE
-		  MB_GetSlaveID(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2    //jtm 02-25-2013 changed from 1 byte to 2 bytes
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetCoil_StartAddr(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetCoil_Count(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetDiscInput_StartAddr(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetDiscInput_Count(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetInReg_StartAddr(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetInReg_Count(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetHoldReg_StartAddr(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    SETUP_CONFIG_MESSAGE
-		  MB_GetHoldReg_Count(&ConfigMsg);
-		  AFTER_CONFIG_MESSAGE_2
-
-	    msg->buflen=len;
-	  }
-	  else if(msg->service==0x10)//set
-	  {
-		    if(msg->buflen>34)
-		    {
-		      g_status=0x15;
-		      return;
-		    }
-		    ConfigMsg.buflen=1;
-			  msg->buflen=0;
-
-		    SETUP_CONFIG_MESSAGE_4//Reserved DINT  jtm 09/19/13 inserted 4 byte space as per new spec
-		    SETUP_CONFIG_MESSAGE_2//Reserved INT   jtm 09/19/13 inserted 2 byte space as per new spec
-
-		    SETUP_CONFIG_MESSAGE_1
-		    SetFraming(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_1
-		    MB_SetProtocol(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_1
-		    SetConsumeAssyNum(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_1
-		    SetBaudRate(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_1
-		    MB_SetType(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_1
-		    SetProduceAssyNum(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_4    //Timeout 4 bytes allocated, but using 2 least significant bytes
-		    MB_SetTimeout(&ConfigMsg);//jtm 09-18-13 Changed to 4 bytes as per new spec
-
-		    SETUP_CONFIG_MESSAGE_2    //jtm 02-25-2013 changed from 1 byte to 2 bytes
-		    MB_SetSlaveID(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetCoil_StartAddr(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetCoil_Count(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetDiscInput_StartAddr(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetDiscInput_Count(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetInReg_StartAddr(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetInReg_Count(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetHoldReg_StartAddr(&ConfigMsg);
-
-		    SETUP_CONFIG_MESSAGE_2
-		    MB_SetHoldReg_Count(&ConfigMsg);
-	  }
-	  InitSerialIO();
-
-#else
 	MSG			   ConfigMsg;
 	unsigned char *ptr = msg->buf;
 	unsigned char  len = msg->buflen;
@@ -571,7 +377,6 @@ void AssyConfigFunc (MSG *msg)
 		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
 			SRecProtSetMode (&ConfigMsg);
 	}
-#endif
 }
 
 bool CheckMsgLen (MSG *msg, unsigned char lo, unsigned char hi)
@@ -623,89 +428,6 @@ unsigned char AssyCheck (MSG *msg)
 		return 0;
 	return tmp;
 }
-
-#ifdef SIM_MODBUS
-void InitAssembly(void)
-{
-
-  /* DRC 2/12/2015 Replaced the above lines with the following */
-  ConsumeAssyNum = Read_EE_Byte(EE_Consume_Path_Id);
-  Ascii_attrib.ReceiveSize = Read_EE_Byte(EE_RECBUFFER_ADDR);
-  ProduceAssyNum = Read_EE_Byte(EE_Produce_Path_Id);
-  Ascii_attrib.TransmitSize = Read_EE_Byte(EE_XMITBUFFER_ADDR);
-	/* End of changes */
-
-//	IOCnxnSize[CSI_P_CONS] = Ascii_attrib.ReceiveSize;
-//	IOCnxnSize[CSI_P_PROD] = Ascii_attrib.TransmitSize;
-//	IOCnxnSize[CSI_C_PROD] = Ascii_attrib.TransmitSize;
-
-}
-
-void SetConsumeAssyNum(MSG * msg)
-{
-  if(!DnCheckAttrLen(msg,1,1))return;
-  ConsumeAssyNum = msg->buf[0];
-	switch(ConsumeAssyNum)
-	{
-		case 102:
-			Ascii_attrib.ReceiveSize = 26;//10+16 bytes
-		  break;
-
-		case 106:
-			Ascii_attrib.ReceiveSize = 58;//10+48 bytes
-		  break;
-
-		case 108:
-			Ascii_attrib.ReceiveSize = 82;//10+72 bytes
-		  break;
-
-		default:
-			g_status = INVALID_PARAMETER;
-	}
-
-	if ( g_status != INVALID_PARAMETER )
-	{
-		 Write_EE_Byte(EE_Consume_Path_Id, ConsumeAssyNum);
-		 Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.ReceiveSize);
-	}
-
-  msg->buflen=0;
-}
-
-void SetProduceAssyNum(MSG * msg)
-{
-  if(!DnCheckAttrLen(msg,1,1))return;
-  ProduceAssyNum = msg->buf[0];
-	switch(ProduceAssyNum)
-	{
-		case 101:
-			Ascii_attrib.TransmitSize = 30; //14+16 bytes
-		  MaxRxSize = 16;
-		  break;
-
-    case 105:
-  		Ascii_attrib.TransmitSize = 62;//14+48 bytes
-		  MaxRxSize = 48;
-		  break;
-
-		case 107:
-			Ascii_attrib.TransmitSize = 86;//14+72 bytes
-		  MaxRxSize = 72;
-		  break;
-
-    default:
-			g_status = INVALID_PARAMETER;
-	}
-
-	if ( g_status != INVALID_PARAMETER )
-	{
-     Write_EE_Byte(EE_Produce_Path_Id, ProduceAssyNum);
-     Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TransmitSize);
-  }
-
-  msg->buflen=0;
-}
-#endif
 
 unsigned char CompAssyCSize (void)
 {

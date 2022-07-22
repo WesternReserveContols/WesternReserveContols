@@ -1,11 +1,11 @@
+#include <c505c.h>
+#include <dn_def.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
+#include <std.h>
 #include <string.h>
-#include "std.h"
-#include "c505c.h"
-#include "dn_eeprm.h"
-#include "dn_dnobj.h"
-#include "dn_uiobj.h"
-#include "dn_def.h"
-#include "dn_tmobj.h"
 #include "i2c_eeprom.h"
 
 // take out in end er

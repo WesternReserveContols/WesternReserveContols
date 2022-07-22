@@ -8,7 +8,7 @@
 //             Copyright (c) 1999 Allen-Bradley Co.
 //***********************************************************************
 
-#include "std.h"
+#include <std.h>
 
 // EEPROM Memory Map
 #define EE_CS_Lo	   0x00 // EEPROM Checksum
@@ -49,11 +49,9 @@
 #define EE_BL_PROD_CODE_LO 0x39 // brand label Device Type
 #define EE_BL_PROD_CODE_HI 0x3A
 
-#ifdef SIM_MODBUS
-#define EE_END_COMMON_AREA 0x3B // 0x4F
-#else
-#define EE_END_COMMON_AREA 0x4F
-#endif
+
+#define EE_END_COMMON_AREA 0x3B // Changing EEPROM address from 0x4F to 0x3B as MODBUS needs more bytes
+
 #ifndef EEPROM_SIZE
 // I changed this from 512 defaultr to 128 default and put ee size heree instead of
 // header to allow configuration on command line.. (this is the only module that needs to know

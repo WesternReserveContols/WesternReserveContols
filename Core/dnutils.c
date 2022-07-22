@@ -9,8 +9,8 @@
  *
  */
 
+#include <msg.h>
 #include <stddef.h>
-#include "msg.h"
 
 void *DNChkAndRetAttrNum (flist *funcs, unsigned char max_num_of_attr, unsigned char attr)
 {

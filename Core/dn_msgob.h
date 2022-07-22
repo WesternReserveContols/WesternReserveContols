@@ -11,8 +11,8 @@
 //             Copyright (c) 1997 Allen-Bradley Co.
 //***********************************************************************
 
-#include "std.h"
-#include "dn_def.h"
+#include <dn_def.h>
+#include <std.h>
 
 #define NEW_COS_DATA 1
 #define OLD_COS_DATA 0

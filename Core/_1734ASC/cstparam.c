@@ -1006,12 +1006,7 @@ void ParamClassReset (void)
 	Write_EE_Byte (EE_CUST_PARAM_INIT_VAR, 0);
 	CustParamInit ();
 	InitRxTxAssy ();
-#ifdef SIM_MODBUS
-	InitMbParam();
-	MBport_RestoreSerialFromEE ();
-#else
 	RestoreSerialFromEE ();
-#endif
 }
 
 // New function called from the EE reset state

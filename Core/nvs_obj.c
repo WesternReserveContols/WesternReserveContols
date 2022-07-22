@@ -12,14 +12,14 @@
 
 // INCLUDES
 
-#include "c505c.h"	  // uP register declarations
-#include "dn_msgob.h" // declarations for the Message Object
-#include "dn_dnobj.h" // declarations for the DN object
-#include "dn_cnobj.h" // declarations for the Connection Obj
-#include "dn_ahobj.h" // declarations for the ACK Handler
-#include "dn_uiobj.h" // declarations to access the LEDs
-#include "dn_eeprm.h" // EEPROM prototypes
-#include "nvs_obj.h"  // defines for NVS Object
+#include <c505c.h>	  // uP register declarations
+#include <dn_ahobj.h> // declarations for the ACK Handler
+#include <dn_cnobj.h> // declarations for the Connection Obj
+#include <dn_dnobj.h> // declarations for the DN object
+#include <dn_eeprm.h> // EEPROM prototypes
+#include <dn_msgob.h> // declarations for the Message Object
+#include <dn_uiobj.h> // declarations to access the LEDs
+#include <nvs_obj.h>  // defines for NVS Object
 
 // DEFINITIONS
 

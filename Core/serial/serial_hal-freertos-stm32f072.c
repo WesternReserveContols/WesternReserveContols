@@ -9,9 +9,6 @@
 #include "serial_hal.h"
 #include "serial_config.h"
 
-#ifdef SIM_MODBUS
-#include "_ILX34-MBS/mbport.h"
-#endif
 /////////////////////////////
 // Variables
 
@@ -29,10 +26,9 @@ static uint32_t sh_parity	   = UART_PARITY_NONE;
 
 ////////////////////////////
 // Internal Function Prototypes
-#ifndef SIM_MODBUS
-static void Serial_RX_ISR (void);
-static void Serial_TX_ISR (void);
-#endif
+
+void Serial_RX_ISR (void);
+void Serial_TX_ISR (void);
 
 // init function
 serial_status SH_Init (void)
@@ -109,25 +105,19 @@ serial_status SH_Set_Parameters (void)
 	// We are touching Ascii shared variable
 	SH_Disable_Interrupts ();
 	//
-#ifndef SIM_MODBUS
 	if (Ascii.flowcontrol != 0)
 	{
 		// flow control not supported, invalid state
 		// Just warn here, no error
 		DSC_Writes (DSC_LEVEL_INFO, "Flow Control not Supported\n\r");
 	}
-#endif
 	//
 	// framing define will set Data, parity, and stop bits
-#ifdef SIM_MODBUS
-	switch (Ascii_attrib.Framing)
-#else
 	switch (Ascii.Framing)
-#endif
 	{
 	case FRAME_7N2:
 		// special case for our driver
-		//  We will need to mask off one stop bit out of the 8 data bits
+		// We will need to mask off one stop bit out of the 8 data bits
 		DSC_Writes (DSC_LEVEL_INFO, "7N2\r\n");
 		sh_flag_7N2	   = 1;
 		sh_word_length = UART_WORDLENGTH_7B; //TODO changed from UART_WORDLENGTH_8B; to UART_WORDLENGTH_7B to make it workable
@@ -198,11 +188,8 @@ serial_status SH_Set_Parameters (void)
 	//
 	// baudrate is used as an offset that maps to the BaudDiv array.
 	// just map it here to our desired baud rate
-#ifdef SIM_MODBUS
-	switch (BaudDiv[Ascii_attrib.BaudRate])
-#else
-	switch (BaudDiv[Ascii.baudrate])
-#endif
+
+	switch (BaudDiv[Ascii.BaudRate])
 	{
 	case BAUD12:
 		DSC_Writes (DSC_LEVEL_INFO, "1200b\n\r");
@@ -273,11 +260,7 @@ void SH_IRQ (void)
 		/* UART in mode Receiver -------------------------------------------------*/
 		if (((isrflags & USART_ISR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
 		{
-#ifdef SIM_MODBUS
-			MB_Rx_Interrupt();
-#else
-			Serial_RX_ISR ();
-#endif
+			Serial_RX_ISR();
 			return;
 		}
 	}
@@ -291,12 +274,7 @@ void SH_IRQ (void)
 		{
 			__HAL_UART_CLEAR_FLAG (&huart_main, UART_CLEAR_PEF);
 			DSC_Writes (DSC_LEVEL_INFO, "Parity ERR\r\n");
-#ifdef SIM_MODBUS
-			Ascii_attrib.Status |= PARITY_ERROR_BIT;
-#else
-
-			Ascii.status |= PARITY_ERROR_BIT;
-#endif
+			Ascii.Status |= PARITY_ERROR_BIT;
 		}
 
 		/* UART noise error interrupt occurred -----------------------------------*/
@@ -323,11 +301,9 @@ void SH_IRQ (void)
 		/* we still want to call our receive function if errors --------------------------*/
 		// This is how original code worked - we only set parity error flag and still try to RX char
 		// Get anything pending to RX if it is available still
-#ifdef SIM_MODBUS
-		MB_Rx_Interrupt();
-#else
-		Serial_RX_ISR ();
-#endif
+
+		Serial_RX_ISR();
+
 		return;
 
 	} /* End if some error occurs */
@@ -336,11 +312,7 @@ void SH_IRQ (void)
 	if (((isrflags & USART_ISR_TC) != RESET) && ((cr1its & USART_CR1_TCIE) != RESET))
 	{
 		__HAL_UART_CLEAR_FLAG (&huart_main, UART_FLAG_TC);
-#ifdef SIM_MODBUS
-		MB_Tx_Interrupt();
-#else
 		Serial_TX_ISR ();
-#endif
 		return;
 	}
 }
@@ -416,39 +388,4 @@ serial_status SH_Get_Char_ISR (char *c)
 	return SER_Success;
 }
 
-#ifndef SIM_MODBUS
-// Taken from serial recieve function
-// Simply get char and push to fifo if possible
-static void Serial_RX_ISR (void)
-{
-	char c = 0;
 
-	if (SH_Get_Char_ISR (&c) != SER_Success)
-	{
-		// nothing to get
-		DSC_Writes (DSC_LEVEL_INFO, "Get Char empty in RX ISR\r\n");
-	}
-	else if (Ascii.RxFifo == NULL)
-	{
-		// if application enabled Ser port before init fifo
-		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Access in ISR before init!", DEBUG_STOP);
-		return;
-	}
-	else if (!FifoPush (Ascii.RxFifo, &c))
-	{
-		// report fifo error
-		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Overflow", DEBUG_CONTINUE);
-		Ascii.status |= RX_FIFO_OVERFLOW;
-	}
-
-	// TEST ****
-	// DSC_Write (DSC_LEVEL_INFO, (uint8_t *)&c, 1);
-	// SH_Put_Char (c);
-	// TEST ****
-}
-
-static void Serial_TX_ISR (void)
-{
-	SerialTransmitInterrupt ();
-}
-#endif

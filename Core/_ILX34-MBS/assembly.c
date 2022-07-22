@@ -1,11 +1,11 @@
 // Assembly.c
+#include <dn_def.h>
+#include <fifo.h>
+#include <msg.h>
+#include <serial_config.h>
 #include <stdbool.h>
 #include "ee_adr.h"
-#include "msg.h"
-#include "fifo.h"
 #include <string.h>
-#include "dn_def.h"
-#include "serial_config.h"
 #include "mbport.h"
 
 #define ASSY_PINST		101
@@ -64,9 +64,9 @@ void AssyPFunc (MSG *msg)
 	// if(AssyProdRecCounter)
 	*(prodbuf++) = RRecNum;
 	msg->buflen++;
-#ifndef SIM_MODBUS
-	*(prodbuf++) = RRecStatus | TxSts | Ascii.status;
-#endif
+
+	*(prodbuf++) = RRecStatus | TxSts | Ascii.Status;
+
 	msg->buflen++;
 	// pad for logix complient crap!
 	if ((RRecRxStrType == SHORT_STRING) || (RRecRxStrType == ARRAY))
@@ -238,7 +238,7 @@ void SRecProtSetTxStrDelimiterMode (MSG *msg);
 void SRecProtSetSwap (MSG *msg);
 void SRecProtSetMode (MSG *msg);
 
-#ifdef SIM_MODBUS
+
 #define SETUP_CONFIG_MESSAGE  \
 	if (!(len--) || g_status) \
 		return;               \
@@ -278,28 +278,10 @@ void SRecProtSetMode (MSG *msg);
 #define AFTER_CONFIG_MESSAGE_2 if(g_status)return; \
 	*(ptr++)=buf[0];*(ptr++)=buf[1];len=len+2;
 #define AFTER_CONFIG_MESSAGE_4 if(g_status)return;*(ptr++)=buf[0];*(ptr++)=buf[1];*(ptr++)=buf[2];*(ptr++)=buf[3];len=len+4;
-#else
-#define SETUP_CONFIG_MESSAGE  \
-	if (!(len--) || g_status) \
-		return;               \
-	ConfigMsg.service = 0x10; \
-	ConfigMsg.buflen  = 1;    \
-	buf				  = *(ptr++);
 
-#define SETUP_CONFIG_MESSAGE_2 \
-	ConfigMsg.service = 0x0e;  \
-	ConfigMsg.buflen  = 0;
-
-#define AFTER_CONFIG_MESSAGE_2 \
-	if (g_status)              \
-		return;                \
-	*(ptr++) = buf;            \
-	len++;
-#endif
 
 void AssyConfigFunc (MSG *msg)
 {
-#ifdef SIM_MODBUS
 	MSG ConfigMsg;
 	unsigned char *ptr = msg->buf;
 	unsigned char len=msg->buflen;
@@ -450,130 +432,7 @@ void AssyConfigFunc (MSG *msg)
 		    SETUP_CONFIG_MESSAGE_2
 		    MB_SetHoldReg_Count(&ConfigMsg);
 	  }
-	  MBport_InitSerialIO();
-
-#else
-	MSG			   ConfigMsg;
-	unsigned char *ptr = msg->buf;
-	unsigned char  len = msg->buflen;
-	unsigned char  buf;
-	ConfigMsg.buf = &buf;
-	if (msg->attribute != 3)
-	{
-		g_status = 0x14;
-		return;
-	}
-	// get the record number
-	g_status = 0;
-	if (msg->service == 0x0e)
-	{
-			ConfigMsg.buflen = 0;
-			len				 = 0;
-			// check the buffer length
-			// if(msg->buflen>18)
-			SETUP_CONFIG_MESSAGE_2 // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			AsciiGetDPS (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			AsciiGetBaudrate (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxLen (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxStartFormMode (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxStartChar (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxEndFormMode (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxEndChar (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetRxStrType (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetPadMode (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetPadChar (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetSwap (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			RRecProtGetAutoInc (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetTxStrMaxLen (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetTxStrDelimiterMode (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetTxStrDelimiter (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetTxStrType (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetSwap (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			SETUP_CONFIG_MESSAGE_2
-			SRecProtGetMode (&ConfigMsg);
-			AFTER_CONFIG_MESSAGE_2
-			msg->buflen = len;
-	}
-	else if (msg->service == 0x10)
-	{
-		if (msg->buflen > 18)
-		{
-			g_status = 0x15;
-			return;
-		}
-		ConfigMsg.buflen = 1;
-		msg->buflen		 = 0;
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			AsciiSetDPS (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			AsciiSetBaudrate (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxLen (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxStartFormMode (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxStartChar (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxEndFormMode (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxEndChar (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetRxStrType (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetPadMode (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetPadChar (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetSwap (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			RRecProtSetAutoInc (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetTxStrMaxLen (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetTxStrDelimiterMode (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetTxStrDelimiter (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetTxStrType (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetSwap (&ConfigMsg);
-		SETUP_CONFIG_MESSAGE // sets srv,cls,inst,attr  buf[0]=*(msg->buf++)  buflen=1
-			SRecProtSetMode (&ConfigMsg);
-	}
-#endif
+	  InitSerialIO();
 }
 
 bool CheckMsgLen (MSG *msg, unsigned char lo, unsigned char hi)
@@ -626,20 +485,19 @@ unsigned char AssyCheck (MSG *msg)
 	return tmp;
 }
 
-#ifdef SIM_MODBUS
 void InitAssembly(void)
 {
 
   /* DRC 2/12/2015 Replaced the above lines with the following */
   ConsumeAssyNum = Read_EE_Byte(EE_Consume_Path_Id);
-  Ascii_attrib.ReceiveSize = Read_EE_Byte(EE_RECBUFFER_ADDR);
+  Ascii.ReceiveSize = Read_EE_Byte(EE_RECBUFFER_ADDR);
   ProduceAssyNum = Read_EE_Byte(EE_Produce_Path_Id);
-  Ascii_attrib.TransmitSize = Read_EE_Byte(EE_XMITBUFFER_ADDR);
+  Ascii.TransmitSize = Read_EE_Byte(EE_XMITBUFFER_ADDR);
 	/* End of changes */
 
-//	IOCnxnSize[CSI_P_CONS] = Ascii_attrib.ReceiveSize;
-//	IOCnxnSize[CSI_P_PROD] = Ascii_attrib.TransmitSize;
-//	IOCnxnSize[CSI_C_PROD] = Ascii_attrib.TransmitSize;
+//	IOCnxnSize[CSI_P_CONS] = Ascii.ReceiveSize;
+//	IOCnxnSize[CSI_P_PROD] = Ascii.TransmitSize;
+//	IOCnxnSize[CSI_C_PROD] = Ascii.TransmitSize;
 
 }
 
@@ -650,15 +508,15 @@ void SetConsumeAssyNum(MSG * msg)
 	switch(ConsumeAssyNum)
 	{
 		case 102:
-			Ascii_attrib.ReceiveSize = 26;//10+16 bytes
+			Ascii.ReceiveSize = 26;//10+16 bytes
 		  break;
 
 		case 106:
-			Ascii_attrib.ReceiveSize = 58;//10+48 bytes
+			Ascii.ReceiveSize = 58;//10+48 bytes
 		  break;
 
 		case 108:
-			Ascii_attrib.ReceiveSize = 82;//10+72 bytes
+			Ascii.ReceiveSize = 82;//10+72 bytes
 		  break;
 
 		default:
@@ -668,7 +526,7 @@ void SetConsumeAssyNum(MSG * msg)
 	if ( g_status != INVALID_PARAMETER )
 	{
 		 Write_EE_Byte(EE_Consume_Path_Id, ConsumeAssyNum);
-		 Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.ReceiveSize);
+		 Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii.ReceiveSize);
 	}
 
   msg->buflen=0;
@@ -681,17 +539,17 @@ void SetProduceAssyNum(MSG * msg)
 	switch(ProduceAssyNum)
 	{
 		case 101:
-			Ascii_attrib.TransmitSize = 30; //14+16 bytes
+			Ascii.TransmitSize = 30; //14+16 bytes
 		  MaxRxSize = 16;
 		  break;
 
     case 105:
-  		Ascii_attrib.TransmitSize = 62;//14+48 bytes
+  		Ascii.TransmitSize = 62;//14+48 bytes
 		  MaxRxSize = 48;
 		  break;
 
 		case 107:
-			Ascii_attrib.TransmitSize = 86;//14+72 bytes
+			Ascii.TransmitSize = 86;//14+72 bytes
 		  MaxRxSize = 72;
 		  break;
 
@@ -702,12 +560,12 @@ void SetProduceAssyNum(MSG * msg)
 	if ( g_status != INVALID_PARAMETER )
 	{
      Write_EE_Byte(EE_Produce_Path_Id, ProduceAssyNum);
-     Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TransmitSize);
+     Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii.TransmitSize);
   }
 
   msg->buflen=0;
 }
-#endif
+
 
 unsigned char CompAssyCSize (void)
 {

@@ -1,11 +1,11 @@
-#include "dn_cnobj.h"
-#include "c505c.h"
-#include "dn_ahobj.h"
-#include "dn_tmobj.h"
-#include "dn_dnobj.h"
-#include "dn_uiobj.h"
-#include "app_objs.h"
-#include "dn_msgob.h"
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_ahobj.h>
+#include <dn_cnobj.h>
+#include <dn_dnobj.h>
+#include <dn_msgob.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
 
 ConnectionObjectStructure ConnectionObjectRAM[NUM_OF_CNXNS];
 uchar					  IOCnxnSize[4];		  // cnxn sizes for IO cnxns (COS and strobe cons sizes static)

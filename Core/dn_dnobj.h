@@ -11,8 +11,8 @@
 //   11-12-98 CRS - added allocbyte to dnetobject structure
 //***********************************************************************
 
-#include "std.h"
-#include "dn_def.h"
+#include <dn_def.h>
+#include <std.h>
 
 #define AUTO_BAUD_ENABLED  0xAB // for AutoBaud
 #define QUICK_CONN_ENABLED 0xFA // for "FAst"

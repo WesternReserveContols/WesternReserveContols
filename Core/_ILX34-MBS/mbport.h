@@ -6,8 +6,9 @@
  */
 
 
-#include "fifo.h"
-#include "msg.h"
+#include <fifo.h>
+#include <msg.h>
+#include <serial_config.h>
 #include "stdbool.h"
 
 #ifndef _MBPORT_H
@@ -140,47 +141,29 @@ typedef struct
   BYTE ASCIIinstance;
 } MODBUS_ATTRIB;
 
-typedef struct
-{
-  BYTE Framing;
-  BYTE DataBits;
-  BYTE BaudRate;
-  BYTE Delimiter;
-  BYTE Parity;
-  BYTE BlockSize;
-  BYTE Mode;
-  BYTE ReceiveSize;
-  BYTE TransmitSize;
-  BYTE Pad;//:1;
-  BYTE PadChar;
-  BYTE TransmitDelimiter;
-  BYTE Status;
-  FIFO_CONTEXT RxFifo;
-  FIFO_CONTEXT TxFifo;
-} ASCII_ATTRIB;
 
-extern ASCII_ATTRIB Ascii_attrib;
+extern ASCIISTRUCT Ascii_attrib;
 
 
-typedef struct
-{
-  unsigned char   protocol;             // ascii or RTU
-  unsigned char   framing;              // serial comm framing 8N1...
-  unsigned char   baudrate;             // serial baudrate
-  unsigned char   rxsize;               // receive size 
-  unsigned char   txsize;               // transmit size
-  unsigned char   type;                 // modbus master or slave mode
-  unsigned int    timeout;              // timeout for modbus communication
-  unsigned int    slaveID;              // id of the slave
-  unsigned int    Coil_StartAddr;       // starting address of the input coil
-  unsigned int    Coil_Count;           // 10/24/2013 DRC - now means global count that determines max upper coil address
-  unsigned int    DiscInput_StartAddr;  // the output coil start address
-  unsigned int    DiscInput_Count;      // 10/24/2013 DRC - now means global count that determines max upper discrete input address
-  unsigned int    InReg_StartAddr;      // the input register start address
-  unsigned int    InReg_Count;          // 10/24/2013 DRC - now means global count that determines max upper input register address
-  unsigned int    HoldReg_StartAddr;    // the output register start
-  unsigned int    HoldReg_Count;        // 10/24/2013 DRC - now means global count that determines max upper holding address
-}MB_CONFIG;
+//typedef struct
+//{
+//  unsigned char   protocol;             // ascii or RTU
+//  unsigned char   framing;              // serial comm framing 8N1...
+//  unsigned char   baudrate;             // serial baudrate
+//  unsigned char   rxsize;               // receive size
+//  unsigned char   txsize;               // transmit size
+//  unsigned char   type;                 // modbus master or slave mode
+//  unsigned int    timeout;              // timeout for modbus communication
+//  unsigned int    slaveID;              // id of the slave
+//  unsigned int    Coil_StartAddr;       // starting address of the input coil
+//  unsigned int    Coil_Count;           // 10/24/2013 DRC - now means global count that determines max upper coil address
+//  unsigned int    DiscInput_StartAddr;  // the output coil start address
+//  unsigned int    DiscInput_Count;      // 10/24/2013 DRC - now means global count that determines max upper discrete input address
+//  unsigned int    InReg_StartAddr;      // the input register start address
+//  unsigned int    InReg_Count;          // 10/24/2013 DRC - now means global count that determines max upper input register address
+//  unsigned int    HoldReg_StartAddr;    // the output register start
+//  unsigned int    HoldReg_Count;        // 10/24/2013 DRC - now means global count that determines max upper holding address
+//}MB_CONFIG;
 
 #define ASCII_MODE_INTER_CHAR_TO_INTERVAL  1000    // millisec
 
@@ -195,16 +178,16 @@ unsigned char ComputeIOProduceSize(void);
 extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
 //void          MBPort_8ms_Timer(void);
 extern void	  ModbusMain(void);
-extern void MB_Rx_Interrupt(void);
-extern void MB_Tx_Interrupt(void);
+extern void Serial_RX_ISR(void);
+extern void Serial_TX_ISR(void);
 extern void InitMbParam(void);
 extern void InitAssembly(void);
 extern void main_port_serial (void);
 extern void Mb_FactoryDefaults(void);
 extern void InitRtuTimeout(void);
 extern void MB_Rtu_TimedOut(void);
-extern void MBport_InitSerialIO(void);
-extern void MBport_RestoreSerialFromEE (void);
+extern void InitSerialIO(void);
+extern void RestoreSerialFromEE (void);
 // Get Functions
 void GetFraming(MSG  * msg);
 void GetBaudRate(MSG  * msg);
@@ -241,7 +224,6 @@ void MB_SetHoldReg_Count(MSG  * msg);
 // extern unsigned char xdata produce_buffer[MAX_MODBUS_MESSAGE_SIZE]; //AP
 extern unsigned char xdata, produce_buffer[MAX_MODBUS_MESSAGE_SIZE];
 extern unsigned char produce_buffer_len;
-extern unsigned char MB_Status,MB_Exception;
 extern unsigned int Ascii_Mode_InterChar_Time;       // millisec
 extern unsigned char ASCII_Mode_InterChar_TO_flg; // set to true whenever a timeout occurs
 extern unsigned char ASCII_Mode_InterChar_TO_ON;  // set to true when ASCII_MODE to turn on timer

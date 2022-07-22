@@ -8,8 +8,8 @@
 //             Copyright (c) 1994 Allen-Bradley Co.
 //***********************************************************************/
 
-#include "std.h"
-#include "dn_def.h"
+#include <dn_def.h>
+#include <std.h>
 
 extern void InitDeviceNet ();
 extern void InitCAN ();

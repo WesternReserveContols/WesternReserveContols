@@ -27,6 +27,18 @@
 #include "serial_config.h"
 #include "serial_hal.h"
 
+
+//MBport dummy
+unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
+unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
+unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
+
+unsigned char  MB_Status=0, MB_Exception=0;
+int waiting = 0;
+int Transmitting=0;
+int ProcessMbMessage=0;
+MB_CONFIG	ModbusConfig;
+
 unsigned char TxEmpty, TxInProgress;
 //  All the 4003 changes for Merge are between if(START_4002) or if(!START_4002)
 unsigned char START_4002 = 1;
@@ -75,7 +87,7 @@ unsigned char current_status_byte (void);
 void ascii_strc_f_b_set (unsigned char framing, unsigned char baud_rate)
 {
 	Ascii.Framing  = framing;
-	Ascii.baudrate = baud_rate;
+	Ascii.BaudRate = baud_rate;
 
 	// now what?  Probably have to set some registers
 }
@@ -84,8 +96,8 @@ void ascii_strc_f_b_set (unsigned char framing, unsigned char baud_rate)
 unsigned char current_status_byte (void)
 {
 	// have to filter out the parity bit in RRecStatus.  It doesn't
-	//  seem to follow the one in Ascii.status
-	return (((RRecStatus & 0xFB) | TxSts | Ascii.status) & VALID_BIT_MASK);
+	//  seem to follow the one in Ascii.Status
+	return (((RRecStatus & 0xFB) | TxSts | Ascii.Status) & VALID_BIT_MASK);
 }
 
 #endif // GMM
@@ -107,7 +119,7 @@ void InitSerialIO (void);
 void RestoreSerialFromEE (void)
 {
 	Ascii.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
-	Ascii.baudrate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
+	Ascii.BaudRate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
 	InitSerialIO ();
 }
 void SHWInit (void)
@@ -147,9 +159,9 @@ void EnableInterrupts (void);
 void ToggleAndLockSyncBits (void)
 {
 	DisableInterrupts ();
-	Ascii.status ^= TX_FIFO_TOGGLE;
-	Ascii.status |= TX_FIFO_HAS_DATA;
-	lock = 1; // don't allow modifications to ascii.status
+	Ascii.Status ^= TX_FIFO_TOGGLE;
+	Ascii.Status |= TX_FIFO_HAS_DATA;
+	lock = 1; // don't allow modifications to Ascii.Status
 	EnableInterrupts ();
 }
 
@@ -157,7 +169,7 @@ void UnlockAndUpdateSyncBits (void)
 {
 	DisableInterrupts ();
 	if (!FifoSize (Ascii.RxFifo))
-		Ascii.status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
+		Ascii.Status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
 	lock = 0;
 	EnableInterrupts ();
 }
@@ -178,7 +190,7 @@ void SerialTransmitInterrupt (void)
 	{
 		IO_SET_SerialTxRx (TxRx_RECV);
 		if (!lock)
-			Ascii.status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
+			Ascii.Status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
 	}
 	/*
 	}	 // END 4001
@@ -191,6 +203,39 @@ void SerialTransmitInterrupt (void)
 }
 //#endif
 
+void Serial_TX_ISR (void)
+{
+	SerialTransmitInterrupt ();
+}
+
+void Serial_RX_ISR (void)
+{
+	char c = 0;
+
+	if (SH_Get_Char_ISR (&c) != SER_Success)
+	{
+		// nothing to get
+//		DSC_Writes (DSC_LEVEL_INFO, "Get Char empty in RX ISR\r\n");
+	}
+	else if (Ascii.RxFifo == NULL)
+	{
+		// if application enabled Ser port before init fifo
+//		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Access in ISR before init!", DEBUG_STOP);
+		return;
+	}
+	else if (!FifoPush (Ascii.RxFifo, &c))
+	{
+		// report fifo error
+//		Debug_ReportError (DEBUG_ERR_SERIAL, "RX FIFO Overflow", DEBUG_CONTINUE);
+		Ascii.Status |= RX_FIFO_OVERFLOW;
+	}
+
+	// TEST ****
+	// DSC_Write (DSC_LEVEL_INFO, (uint8_t *)&c, 1);
+	// SH_Put_Char (c);
+	// TEST ****
+}
+
 void TriggerCOS (void);
 
 unsigned char oldasts;
@@ -198,7 +243,7 @@ unsigned char oldasts;
 void SHWMain (void)
 {
 
-	// Ascii.status MUST be syncronized
+	// Ascii.Status MUST be syncronized
 	// with the interupts
 	//  if(START_4002)
 	/*
@@ -220,7 +265,7 @@ void SHWMain (void)
 				EnableInterrupts ();
 				IO_SET_SerialTxRx (TxRx_RECV);
 				if (!lock)
-					Ascii.status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
+					Ascii.Status &= ~(TX_FIFO_OVERFLOW | TX_FIFO_HAS_DATA);
 				TxInProgress = 0;
 			}
 		}
@@ -229,7 +274,7 @@ void SHWMain (void)
 	   */
 
 	DisableInterrupts ();
-	if (oldasts != Ascii.status)
+	if (oldasts != Ascii.Status)
 	{
 		TriggerCOS ();
 #ifdef GMM
@@ -237,10 +282,10 @@ void SHWMain (void)
 		// Have to check on status changes for GMM
 		// First find bits that have changed - then check if we're
 		//   interested in them.
-		if (GMMRAM.active && ((Ascii.status ^ oldasts) & GMM_ERR_BITS))
+		if (GMMRAM.active && ((Ascii.Status ^ oldasts) & GMM_ERR_BITS))
 		{
 			// only one channel - bit gets set or cleared for that chan
-			if (Ascii.status & GMM_ERR_BITS)
+			if (Ascii.Status & GMM_ERR_BITS)
 			{
 				// set 'new status' bit and 'a chan has error' bit
 				GMMRAM.IOStatus = 0x03;
@@ -258,7 +303,7 @@ void SHWMain (void)
 			GMM_ser_data_rcvd (); // cause new status to be transmitted
 		}
 #endif // GMM
-		oldasts = Ascii.status;
+		oldasts = Ascii.Status;
 	}
 	EnableInterrupts ();
 
@@ -266,11 +311,11 @@ void SHWMain (void)
 	if (!FifoSize (Ascii.RxFifo))
 	{
 		// fifo is now empty
-		// Ascii.status MUST be syncronized
+		// Ascii.Status MUST be syncronized
 		// with the interupts
-		Ascii.status &= ~(RX_FIFO_OVERFLOW);
-		Ascii.status &= ~IO_CNXN_IS_POLLED;
-		Ascii.status |= IOCnxnIsPOLLED; // 4003
+		Ascii.Status &= ~(RX_FIFO_OVERFLOW);
+		Ascii.Status &= ~IO_CNXN_IS_POLLED;
+		Ascii.Status |= IOCnxnIsPOLLED; // 4003
 	}
 	EnableInterrupts ();
 }
@@ -302,7 +347,7 @@ void my_putc (unsigned char portnum, char chr)
 {
 	(void)portnum;
 
-	// Ascii.status MUST be syncronized with the interrupts
+	// Ascii.Status MUST be syncronized with the interrupts
 	DisableInterrupts ();
 	// this IO_GET reads the actual PIN value of the output
 	// If we are in RX mode, flip to TX and put our first char
@@ -311,17 +356,17 @@ void my_putc (unsigned char portnum, char chr)
 		IO_SET_SerialTxRx (TxRx_XMIT);
 		_putc_ (0, chr);
 		TxInProgress = 1; // 4002
-		if (!(Ascii.status & TX_FIFO_HAS_DATA) && !lock)
+		if (!(Ascii.Status & TX_FIFO_HAS_DATA) && !lock)
 		{
-			Ascii.status ^= TX_FIFO_TOGGLE;
-			Ascii.status |= TX_FIFO_HAS_DATA;
+			Ascii.Status ^= TX_FIFO_TOGGLE;
+			Ascii.Status |= TX_FIFO_HAS_DATA;
 		}
 	}
 	else
 	{
 		if (!FifoPush (Ascii.TxFifo, &chr))
 		{
-			Ascii.status |= TX_FIFO_OVERFLOW;
+			Ascii.Status |= TX_FIFO_OVERFLOW;
 		}
 		//#ifdef START_4002
 		else
@@ -373,7 +418,7 @@ void AsciiGetBaudrate (MSG *msg)
 		g_status = TOO_MUCH_DATA_2;
 	}
 	msg->buflen = 1;
-	msg->buf[0] = Ascii.baudrate;
+	msg->buf[0] = Ascii.BaudRate;
 }
 
 void AsciiGetNotifyPathRx (MSG *msg)
@@ -402,10 +447,10 @@ void AsciiGetStatus (MSG *msg)
 	}
 	msg->buflen = 1;
 #ifdef CNXN_STATUS_BIT_ON
-	Ascii.status &= ~IO_CNXN_IS_POLLED;
-	Ascii.status |= IOCnxnIsPOLLED; // 4003
+	Ascii.Status &= ~IO_CNXN_IS_POLLED;
+	Ascii.Status |= IOCnxnIsPOLLED; // 4003
 #endif
-	msg->buf[0] = Ascii.status;
+	msg->buf[0] = Ascii.Status;
 }
 #define AsciiSetFlowControlStatus DNAttributeNotSupported
 
@@ -417,7 +462,7 @@ void AsciiSetStatus (MSG *msg)
 	}
 	// bit 0 must be syncronized
 	DisableInterrupts ();
-	Ascii.status &= ~PARITY_ERROR_BIT;
+	Ascii.Status &= ~PARITY_ERROR_BIT;
 	EnableInterrupts ();
 	msg->buflen = 0;
 }
@@ -461,8 +506,8 @@ void AsciiSetBaudrate (MSG *msg)
 		g_status = INVALID_ATTRIBUTE_DATA;
 		return;
 	}
-	Ascii.baudrate = msg->buf[0];
-	Write_EE_Byte (EE_SERIAL_BAUDRATE, Ascii.baudrate);
+	Ascii.BaudRate = msg->buf[0];
+	Write_EE_Byte (EE_SERIAL_BAUDRATE, Ascii.BaudRate);
 	InitSerialIO ();
 	msg->buflen = 0;
 }
@@ -528,13 +573,23 @@ void *AsciiFunc (MSG *msg)
 bool isparityerror (unsigned char portnum)
 {
 	portnum = portnum;
-	return (1 && (Ascii.status & PARITY_ERROR_BIT));
+	return (1 && (Ascii.Status & PARITY_ERROR_BIT));
 }
 
 void clearparityerror (unsigned char portnum)
 {
 	portnum = portnum;
 	DisableInterrupts ();
-	Ascii.status &= ~PARITY_ERROR_BIT;
+	Ascii.Status &= ~PARITY_ERROR_BIT;
 	EnableInterrupts ();
+}
+
+///Dummy functions of MBport
+void Mb_FactoryDefaults(void)
+{
+	return;
+}
+void MB_Rtu_TimedOut (void)
+{
+	return;
 }

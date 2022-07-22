@@ -1,7 +1,7 @@
-#include "fifo.h"
+#include <fifo.h>
+#include <memopt.h>
 #include <stdlib.h>
 #include <string.h>
-#include "memopt.h"
 unsigned char fifo_mem[FIFOMEMSIZE];
 unsigned int  fifo_used_mem = 0;
 FIFO_CONTEXT  FifoInit (FIFO_INIT *_init)

@@ -1,10 +1,10 @@
-#include "dn_idobj.h"
-#include "c505c.h"
-#include "app_objs.h"
-#include "dn_msgob.h"
-#include "dn_init.h"
-#include "dn_eeprm.h"
-#include "bld_nmbr.h" //include file for wrc build number
+#include <app_objs.h>
+#include <bld_nmbr.h> //include file for wrc build number
+#include <c505c.h>
+#include <dn_eeprm.h>
+#include <dn_idobj.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
 
 #define WRC_BUILDNUMBER 101 // attribute 101 is the wrc buildnumber
 

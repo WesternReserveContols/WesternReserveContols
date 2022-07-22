@@ -21,6 +21,7 @@
 #include <string.h>
 #include "c505c.h" // uP register declarations
 #include <string.h>
+#include "mbport.h"
 
 #ifndef FCL
 #define FCL 140
@@ -47,9 +48,7 @@
 //#define NewConnectionAllocationMethod
 
 void TimerObjectSvcTimer (void);
-#ifdef SIM_MODBUS
-extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
-#endif
+
 // DEFINES
 
 // LOCAL FUNCTIONS
@@ -95,6 +94,7 @@ extern unsigned char current_status_byte (void);
 extern void			 GMM_pad_buffers (void);
 extern void			 GMM_set_msg_pointers (void);
 #endif // GMM
+extern void MBM_QueMbTxMsg(unsigned char  *P_InBuf);
 
 // VARIABLES
 unsigned int  AppProductCode;
@@ -139,11 +139,7 @@ void CustParamInit (void);
 void AppObjectInit ()
 {
 	CustParamInit ();
-#ifdef SIM_MODBUS
 	InitMbParam();
-#else
-	SHWInit ();
-#endif
 	InitRxTxAssy ();
 #ifndef NewConnectionAllocationMethod
 	IOCnxnSize[CSI_P_CONS] = CompAssyCSize (); // poll consume size
@@ -206,16 +202,7 @@ void AppObjectMonitorIO (void) //?
 {
 
 	TimerObjectSvcTimer ();
-
-//	SHWMain ();
-
-	TimerObjectSvcTimer ();
-#ifdef SIM_MODBUS
 	main_port_serial();
-#else
-	RRecMain ();
-#endif
-
 	TimerObjectSvcTimer ();
 
 	// assy main proc
@@ -400,9 +387,7 @@ void AppObject (void)
 		break;
 
 	case 0x70:
-#ifndef SIM_MODBUS
-		f = AsciiFunc (&msg); //TODO ASCII code so disabled it
-#endif
+		f = AsciiFunc (&msg);
 		break;
 
 	case 0x71:
@@ -448,13 +433,8 @@ BOOL		  AppObjectPollConsume (void)
 
 	msg.buflen = consume_data_size;
 	msg.buf	   = &P_InMsgBuffer[0];
-#ifdef SIM_MODBUS
+
 	MBM_QueMbTxMsg(&P_InMsgBuffer[0]);
-#else
-	AssyCFunc (&msg);
-#endif
-
-
 	return (TRUE); // no data - simply send response
 }
 
@@ -759,9 +739,7 @@ void AppObjectGMMConfigSet ()
 		// now let's check the validity of the config data
 		if (!GMM_config_data_valid ())
 		{
-#ifdef SIM_MODBUS
 			Mb_FactoryDefaults();
-#endif
 			AppObjectFactoryDefaults ();
 
 			MessageObjectFormatErrorMessage (INVALID_ATTRIB_VALUE, ADD_CODE_NOT_SPECIFIED);
@@ -776,12 +754,9 @@ void AppObjectGMMConfigSet ()
 					  //  in GMMode, data only transmitted when a new msg
 					  //  rcvd from PLC.
 
-#ifdef SIM_MODBUS
-		MBport_InitSerialIO();
-#else
 		// now, let's initialize all the hardware stuff
 		InitSerialIO ();
-#endif
+
 		GMM_pad_buffers (); // seems that the first time thru, the pad byte
 							//  has not been applied.
 
@@ -815,10 +790,6 @@ static BOOL GMM_config_data_valid (void)
 		return (FALSE);
 	else
 	{
-#ifndef SIM_MODBUS
-		// config values OK - let's copy the Ascii structure stuff now
-		ascii_strc_f_b_set (LocalFraming, LocalBaudRate); //TODO Ascii code disabled it
-#endif
 		return (TRUE);
 	}
 }
@@ -848,7 +819,7 @@ void AppObjectGMMStatus ()
 		MessageObjectFormatErrorMessage (INVALID_ATTRIB_VALUE, ADD_CODE_NOT_SPECIFIED);
 	else
 	{
-//		temp = current_status_byte (); //TODO check for this status updates
+		temp = current_status_byte ();
 
 		CurrFragObj.buffer[2] = GMM_DIR_IN; // preload
 

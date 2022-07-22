@@ -1,5 +1,5 @@
-#include "c505c.h"
-#include "dn_def.h"
+#include <c505c.h>
+#include <dn_def.h>
 #include "serial_hal.h"
 #include "can_hal.h"
 

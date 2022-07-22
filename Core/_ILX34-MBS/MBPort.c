@@ -1,26 +1,23 @@
+#include <dn_cnobj.h>
+#include <dn_dnobj.h>
+#include <dn_eeprm.h>
+#include <dn_eeprm.h>
+#include <dn_init.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
+#include <fifo.h>
+#include <memopt.h>
+#include <msg.h>
+#include <serial_config.h>
 #include "mbport.h"
 
-#include "msg.h"
 #include "ee_adr.h"
 #include "io_peripheral.h"
 #include "serial_hal.h"
-#include "serial_config.h"
 #include "tim.h"
 
-#include "fifo.h"
-//#include "obj_def.h"
-//#include "EE_Adr.h"
-#include "dn_eeprm.h"
-#include "memopt.h"
-#include "dn_init.h"
-#include "dn_tmobj.h"
-#include "dn_cnobj.h"
-#include "dn_dnobj.h"
-#include "dn_uiobj.h"
-#include "dn_eeprm.h"
-#include "xdatacpy.h"
-//#include "status.h"
 #include <stdio.h>
+#include <xdatacpy.h>
 
 uchar NoByteSwap;
 uchar FloatSwap;
@@ -159,6 +156,7 @@ unsigned char mb_messagesent;
 unsigned long mb_timer;
 unsigned char  MB_Status=0, MB_Exception=0;
 
+
 int waiting=0;
 int Transmitting=0;
 int ProcessMbMessage=0;
@@ -173,7 +171,7 @@ MODBUS_ATTRIB ModAttrib = {
    1,
 };
 
-ASCII_ATTRIB Ascii_attrib = {
+ASCIISTRUCT Ascii = {
    3, //chnaged from 0 to 3 for testing MODBUS//Framing - 0=7N2, 1=7E1, 2=7O1, 3=8N1, 4=8N2, 5=8E1, 6=8O1
    7, //data bits
    0,	//baud rate index to BaudDiv[]
@@ -231,14 +229,14 @@ unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a tim
 unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
 
 
-void MBport_RestoreSerialFromEE (void)
+void RestoreSerialFromEE (void)
 {
-	Ascii_attrib.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
-	Ascii_attrib.BaudRate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
-	MBport_InitSerialIO ();
+	Ascii.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
+	Ascii.BaudRate = Read_EE_Byte (EE_SERIAL_BAUDRATE); //@9600
+	InitSerialIO ();
 }
 
-void MBport_InitSerialIO(void)
+void InitSerialIO(void)
 {
    static char init_status = 0;
 
@@ -254,8 +252,8 @@ void MBport_InitSerialIO(void)
    /* set for 1 sec */
    mb_timeoutcounter = ModbusConfig.timeout;
    mb_messagesent = 0;
-   Ascii_attrib.DataBits = MBport_DataParity[Ascii_attrib.Framing].DataBits;
-   Ascii_attrib.Parity = MBport_DataParity[Ascii_attrib.Framing].Parity;
+   Ascii.DataBits = MBport_DataParity[Ascii.Framing].DataBits;
+   Ascii.Parity = MBport_DataParity[Ascii.Framing].Parity;
    TxRx = TxRx_RECV;              //rs485 TX/RX to receive
    mb_data_buffer_len=0;			     //er-- experiment
 
@@ -304,8 +302,8 @@ void XmitChar(BYTE chr)
 #define BUFFER_OVERFLOW_ERR_BIT	1
 
 unsigned char next_recieve_status; //=0;
-void MB_Rx_Interrupt(void);
-void MB_Tx_Interrupt(void);
+void Serial_RX_ISR(void);
+void Serial_TX_ISR(void);
 
 
 //Application intterface functions needed for the group 2 allocate
@@ -313,11 +311,11 @@ void MB_Tx_Interrupt(void);
 // This is size of PLC_Header plus the MB_TXRX_Size  
 unsigned char ComputeIOConsumeSize(void)
 {
-   return (Ascii_attrib.ReceiveSize); //jtm 02-28-2013
+   return (Ascii.ReceiveSize); //jtm 02-28-2013
 }
 unsigned char ComputeIOProduceSize(void)
 {
-   return (Ascii_attrib.TransmitSize); //jtm 02-28-2013
+   return (Ascii.TransmitSize); //jtm 02-28-2013
 }
 
 WORD UpdateCRC(BYTE mydata,WORD crc)
@@ -917,7 +915,7 @@ const unsigned int RTU_Timeout[6] = { 29166, 14583, 7292, 3646, 1823, 912 };
 static uint32_t TimerVal = 0;
 void InitRtuTimeout(void) //called from InitSerialIO()
 {
-	TimerVal = RTU_Timeout[Ascii_attrib.BaudRate];
+	TimerVal = RTU_Timeout[Ascii.BaudRate];
 	MX_TIM15_Init (TimerVal);
 }
 
@@ -966,7 +964,7 @@ unsigned char  * mb_data_ptr;
 
 
 
-void MB_Tx_Interrupt(void)
+void Serial_TX_ISR(void)
 {
    //Jignesh TI=0;
    if(mb_data_buffer_out_len)
@@ -1014,7 +1012,7 @@ char recChar;
 unsigned char RiCount = 0;
 void UIObjectLEDRefresh(void);
 
-void MB_Rx_Interrupt(void)
+void Serial_RX_ISR(void)
 {
    err = 0;
 
@@ -1562,14 +1560,14 @@ void GetReceiveSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii_attrib.ReceiveSize;
+   msg->buf[0]=Ascii.ReceiveSize;
 }
 
 void GetTransmitSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii_attrib.TransmitSize;
+   msg->buf[0]=Ascii.TransmitSize;
 }
 
 void SetTransmitSize(MSG  * msg)
@@ -1579,7 +1577,7 @@ void SetTransmitSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   Ascii_attrib.TransmitSize=msg->buf[0];  //jtm 02-27-2013
+   Ascii.TransmitSize=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_XMITBUFFER_ADDR,msg->buf[0]);
    //InitSerialIO();
    return;
@@ -1592,7 +1590,7 @@ void SetReceiveSize(MSG  * msg)
       g_status = INVALID_ATTRIB_VALUE;
       return;
    }
-   Ascii_attrib.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
+   Ascii.ReceiveSize=msg->buf[0];  //jtm 02-27-2013
    EEPROMObjectWriteAndUpdate(EE_RECBUFFER_ADDR,msg->buf[0]);
    //InitSerialIO();
    return;
@@ -1602,7 +1600,7 @@ void GetFraming(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen=1;
-   msg->buf[0]=Ascii_attrib.Framing;
+   msg->buf[0]=Ascii.Framing;
 }
 
 void SetFraming(MSG  * msg)
@@ -1617,7 +1615,7 @@ void SetFraming(MSG  * msg)
       g_status=INVALID_ATTRIBUTE_DATA;
       return;   
    }
-   Ascii_attrib.Framing = msg->buf[0];
+   Ascii.Framing = msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_CHARACTER_FORMAT,msg->buf[0]);
    msg->buflen=0;
 }
@@ -1626,7 +1624,7 @@ void GetBaudRate(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
    msg->buflen = 1;
-   msg->buf[0]= Ascii_attrib.BaudRate;
+   msg->buf[0]= Ascii.BaudRate;
 }
 
 void SetBaudRate(MSG  * msg)
@@ -1642,7 +1640,7 @@ void SetBaudRate(MSG  * msg)
       g_status=INVALID_ATTRIBUTE_DATA;
       return;
    }
-   Ascii_attrib.BaudRate = msg->buf[0];
+   Ascii.BaudRate = msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_BAUDRATE,msg->buf[0]);
    msg->buflen=0;
 }
@@ -1901,11 +1899,11 @@ void Mb_FactoryDefaults(void)
 {
    // default them and save to EEPROM
    ModAttrib.Mode = 0; 			  //ASCII mode
-   Ascii_attrib.Framing = 0;		// 7 N 2
-   Ascii_attrib.BaudRate = 0; 	//19200
+   Ascii.Framing = 0;		// 7 N 2
+   Ascii.BaudRate = 0; 	//19200
    timeout_reload_value = 0;
-   Ascii_attrib.ReceiveSize = 26;
-   Ascii_attrib.TransmitSize = 30;
+   Ascii.ReceiveSize = 26;
+   Ascii.TransmitSize = 30;
    DeviceNetObjectRAM.baudrate = 3;   //DRC 3/3/2015 set from 0 to 3 to match cstparam.c custParamInit()
    ModbusConfig.type =  MB_MASTERMODE;
    ModbusConfig.timeout = 2000;
@@ -1919,9 +1917,9 @@ void Mb_FactoryDefaults(void)
    ModbusConfig.HoldReg_Count = 0;
    ModbusConfig.slaveID = 0;
    /* Now save to EEPROM */
-   Write_EE_Byte(EE_SERIAL_CHARACTER_FORMAT, Ascii_attrib.Framing);
+   Write_EE_Byte(EE_SERIAL_CHARACTER_FORMAT, Ascii.Framing);
 
-   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii_attrib.BaudRate);
+   Write_EE_Byte(EE_SERIAL_BAUDRATE, Ascii.BaudRate);
    Write_EE_Byte(EE_MODBUSMODE_ADDR, ModAttrib.Mode);
    //MSB
    Write_EE_Byte(EE_TIMEOUT_LOW_ADDR,timeout_reload_value & 0xFF);
@@ -1929,8 +1927,8 @@ void Mb_FactoryDefaults(void)
    Write_EE_Byte(EE_TIMEOUT_HI_ADDR,timeout_reload_value >> 8);
    //	Write_EE_Byte(EE_FAULTACT_ADDR, FaultAction);
    //	Write_EE_Byte(EE_IDLEACT_ADDR, IdleAction);
-   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii_attrib.TransmitSize);
-   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii_attrib.ReceiveSize);
+   Write_EE_Byte(EE_XMITBUFFER_ADDR, Ascii.TransmitSize);
+   Write_EE_Byte(EE_RECBUFFER_ADDR, Ascii.ReceiveSize);
    Write_EE_Byte(EE_DNETBAUD_ADDR, DeviceNetObjectRAM.baudrate);  // DRC 3/4/2015 should this be NVS_BAUD_RATE ?
    Write_EE_Byte(MB_TYPE_NVRAM_ADDR, ModbusConfig.type);
    Write_EE_Byte(MB_SLAVEID_NVRAM_ADDR, 0);                       // DRC 4/6/2015 MSB should always be 0 it only uses LSB
@@ -1995,17 +1993,17 @@ void InitMbParam(void)
 	   ModAttrib.Mode = Read_EE_Byte(EE_MODBUSMODE_ADDR);
 //	   ModAttrib.Mode = RTU_MODE; //TODO make it enable to test with RTU. Also to make RTU working make Framing 3 (8N1)
 
-	   Ascii_attrib.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
-//	   Ascii_attrib.Framing = 3; // TODO hard coded for value 3 means 8N1 for UART framing setting.
+	   Ascii.Framing =  Read_EE_Byte(EE_SERIAL_CHARACTER_FORMAT);
+//	   Ascii.Framing = 3; // TODO hard coded for value 3 means 8N1 for UART framing setting.
 
-	   Ascii_attrib.BaudRate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
+	   Ascii.BaudRate = Read_EE_Byte(EE_SERIAL_BAUDRATE);
 
 	   timeout_reload_value  = Read_EE_Byte(EE_TIMEOUT_HI_ADDR);
 	   timeout_reload_value = timeout_reload_value << 8;
 	   timeout_reload_value += Read_EE_Byte(EE_TIMEOUT_LOW_ADDR);
 
-	   Ascii_attrib.ReceiveSize= Read_EE_Byte(EE_RECBUFFER_ADDR);
-	   Ascii_attrib.TransmitSize= Read_EE_Byte(EE_XMITBUFFER_ADDR);
+	   Ascii.ReceiveSize= Read_EE_Byte(EE_RECBUFFER_ADDR);
+	   Ascii.TransmitSize= Read_EE_Byte(EE_XMITBUFFER_ADDR);
 
 	   ModbusConfig.type = Read_EE_Byte(MB_TYPE_NVRAM_ADDR);
 
@@ -2078,7 +2076,7 @@ void InitMbParam(void)
 
 	InitAssembly();
 
-	MBport_InitSerialIO();
+	InitSerialIO();
 	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken 
 	 // out of the InitAssembly() routine. 
    // DRC 3/10/2015 took out so MB buadrate change takes effect after reset as v1.13 does InitSerialIO();
@@ -2538,7 +2536,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
    }
 
-   for ( i = size_of_mainloopassydata; i < Ascii_attrib.TransmitSize; i++ )
+   for ( i = size_of_mainloopassydata; i < Ascii.TransmitSize; i++ )
    {
       mainloopassydata[i] = 0x00;
    }	
@@ -2784,6 +2782,29 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
    }
 
    return err;
+}
+
+// Dummy functions of ASCII Module
+void AsciiSetDPS (MSG *msg)
+{
+	return;
+}
+void AsciiSetBaudrate (MSG *msg)
+{
+	return;
+}
+void ToggleAndLockSyncBits (void)
+{
+	return;
+}
+unsigned char current_status_byte (void)
+{
+	return 0;
+}
+void *AsciiFunc (MSG *msg)
+{
+	// Nothing to do in MODBUS code for this function
+	return 0;
 }
 
 // end of file

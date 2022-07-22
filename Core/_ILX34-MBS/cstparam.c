@@ -55,19 +55,26 @@ typedef struct
 
 unsigned char USINT_0[]						= { 0x00 };
 unsigned char USINT_1[]						= { 0x01 };
-unsigned char DESCRIPTOR_MONITOR[]			= { 0x20, 0x00 };
+unsigned char USINT_2[]						= { 0x02 };
+unsigned char USINT_4[]						= { 0x04 };
+unsigned char DESCRIPTOR_MONITOR[]			= { 0x00, 0x00 };
 unsigned char DESCRIPTOR_READONLY[]			= { 0x10, 0x00 };
 unsigned char DESCRIPTOR_MONITOR_READONLY[] = { 0x30, 0x00 };
-unsigned char DATA_TYPE_USINT[]				= { 8 };
+//unsigned char DATA_TYPE_USINT[]				= { 8 };
 unsigned char DATA_TYPE_SHORT_STRING[]		= { 23 };
+unsigned char DATA_TYPE_SINT[]				= { 0xC2 };
+unsigned char DATA_TYPE_INT[]				= { 0xC3 };
+unsigned char DATA_TYPE_DINT[]				= { 0xC4 };
+unsigned char DATA_TYPE_USINT[]				= { 0xC6 };
 
-#define USINT_0 0
-#define USINT_1 1
-#define DATA_TYPE_SINT  0xC2
-#define DATA_TYPE_USINT 0xC6
-#define DATA_TYPE_INT   0xC3
-#define DATA_TYPE_DINT  0xC4
-#define DESCRIPTOR_MONITOR 0x0000
+
+//#define USINT_0 0
+//#define USINT_1 1
+//#define DATA_TYPE_SINT  0xC2
+//#define DATA_TYPE_USINT 0xC6
+//#define DATA_TYPE_INT   0xC3
+//#define DATA_TYPE_DINT  0xC4
+//#define DESCRIPTOR_MONITOR 0x0000
 /**********
   prototypes for used functions;
   *********/
@@ -99,10 +106,8 @@ void SRecProtGetTxStr (MSG *msg);
 void SRecProtGetTxDataLen (MSG *msg);
 void SRecProtGetTxRec (MSG *msg);
 void AssyGetComboStatus (MSG *msg);
-#ifndef SIM_MODBUS
 void AsciiSetDPS (MSG *msg);
 void AsciiSetBaudrate (MSG *msg);
-#endif
 void RRecProtSetRxLen (MSG *msg);
 void RRecProtSetRxStrType (MSG *msg);
 void RRecProtSetRxStartFormMode (MSG *msg);
@@ -139,12 +144,12 @@ PARAMROM paramlist[16]=
 		{//romattrs[5]
 		//attribute 2
 			{
-			  1,//USINT_0,//val
+			  USINT_1,//USINT_0,//val
 			  1		    //length
 			},
 		//attribute 3
 			{
-			  2,//NULL,	//val
+				USINT_2,//NULL,	//val
 			  1		  //length
 			},
 		//attribute 4
@@ -159,8 +164,8 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  1,	//val
-			  1		//length
+				USINT_1,	//val
+				1		//length
 			}
 		}//end romattrs[5]
   },//end instance 1
@@ -255,7 +260,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  1,	//val
+					USINT_1,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -351,7 +356,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  4,	//val
+				USINT_4,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -383,7 +388,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -415,7 +420,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -447,7 +452,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -479,7 +484,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -511,7 +516,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -543,7 +548,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -575,7 +580,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -607,7 +612,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -639,7 +644,7 @@ PARAMROM paramlist[16]=
 			},
 		//attribute 6
 			{
-			  2,	//val
+				USINT_2,	//val
 			  1		//length
 			}
 		}//end romattrs[5]
@@ -698,12 +703,8 @@ void ParamClassReset (void)
 	Write_EE_Byte (EE_CUST_PARAM_INIT_VAR, 0);
 	CustParamInit ();
 	InitRxTxAssy ();
-#ifdef SIM_MODBUS
 	InitMbParam();
-	MBport_RestoreSerialFromEE ();
-#else
 	RestoreSerialFromEE ();
-#endif
 }
 
 // New function called from the EE reset state

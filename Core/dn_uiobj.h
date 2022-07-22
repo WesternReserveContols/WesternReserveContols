@@ -8,8 +8,8 @@
 //             Copyright (c) 1997 Allen-Bradley Co.
 //***********************************************************************
 
-#include "std.h"
-#include "dn_def.h"
+#include <dn_def.h>
+#include <std.h>
 
 #define MOD_LED_GREEN_BIT 0x01
 #define MOD_LED_RED_BIT	  0x02

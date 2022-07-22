@@ -1,18 +1,16 @@
 //#pragma iv
-#include "dn_tmobj.h"
-#include "c505c.h"
-#include "dn_uiobj.h"
-#include "dn_ahobj.h"
-#include "dn_dnobj.h"
-#include "dn_cnobj.h"
-#include "app_objs.h"
-#include "dn_msgob.h"
-#include "enbl_obj.h"
-#include "dn_init.h"
+#include <app_objs.h>
+#include <c505c.h>
+#include <dn_ahobj.h>
+#include <dn_cnobj.h>
+#include <dn_dnobj.h>
+#include <dn_init.h>
+#include <dn_msgob.h>
+#include <dn_tmobj.h>
+#include <dn_uiobj.h>
+#include <enbl_obj.h>
 
-#ifdef SIM_MODBUS
-#include "_ILX34-MBS/mbport.h"
-#endif
+#include "serial_config.h"
 
 #define EN_BUS_FILTER 2 // X ms before turn enable line is accepted at powerup
 
@@ -169,7 +167,7 @@ unsigned char TimerObjectSvcTimer (void)
 	TimerObjectTick = (TimerObjectTick + 1) % 8;
 	if (!TimerObjectTick)
 	{
-#ifdef SIM_MODBUS
+
 		static int MB_TimeOut;
 	      if(ModbusConfig.timeout != 0)
 	      {
@@ -201,7 +199,7 @@ unsigned char TimerObjectSvcTimer (void)
 	            ASCII_Mode_InterChar_TO_flg = TRUE;
 	         }
 	      }
-#endif
+
 		/*
 		// Only check the connection timeouts if not in DUPLICATE MAC ID
 		//   or BUSOFF Faults

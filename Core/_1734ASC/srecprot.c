@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "memopt.h"
-#include "_ILX34-MBS/ee_adr.h"
+#include "_1734ASC/ee_adr.h"
 #include "msg.h"
 #include "dn_def.h"
 #include "dn_cnobj.h"
@@ -169,16 +169,6 @@ void ParseAndSendTxStr (unsigned char a, unsigned char UseDelim)
 
 void SRecProtSetTxRec (MSG *msg)
 {
-#ifdef SIM_MODBUS
-	if(!DnCheckAttrLen(msg,1,1))
-		return;
-	if(txrecnum == msg->buf[0])
-		return;
-	else
-		return;
-
-	txrecnum=msg->buf[0];
-#else
 	if (!DnCheckAttrLen (msg, 1, 1))
 		return;
 	if (txrecnum != msg->buf[0])
@@ -194,7 +184,6 @@ void SRecProtSetTxRec (MSG *msg)
 
 	txrecnum	= msg->buf[0];
 	msg->buflen = 0;
-#endif
 }
 
 void SRecProtSetTxStr (MSG *msg)
