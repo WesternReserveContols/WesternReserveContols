@@ -1,3 +1,12 @@
+/**
+ * @file MBPort.c
+ * @author Jignesh
+ * @date 25 Jul 2022
+ * @brief This file contains MBPort modbus Master & slave role configurations and related functionalities.
+ *
+ */
+
+
 #include <dn_cnobj.h>
 #include <dn_dnobj.h>
 #include <dn_eeprm.h>
@@ -19,9 +28,9 @@
 #include <stdio.h>
 #include <xdatacpy.h>
 
-uchar NoByteSwap;
-uchar FloatSwap;
-
+/**
+ * Common Macros
+ */
 #define FLT_SWAP_NONE        0
 #define FLT_SWAP_WORD_PAIRS  1
 #define FLT_SWAP_BYTES_WORDS 2
@@ -37,7 +46,7 @@ uchar FloatSwap;
 #define DNO_ADDR_H      6
 #define DNO_QUANT_L     7  // same as count lo in spec
 #define DNO_QUANT_H     8  // same as count hi in spec
-#define DNO_BYTE_COUNT  9   
+#define DNO_BYTE_COUNT  9
 #define DNO_DATA_STRT  10
 
 // Device Net Input (DNI) Assembly defines for location of fields
@@ -80,51 +89,12 @@ uchar FloatSwap;
 #define MBR_F1TO4_DATA_STRT 3
 #define MBR_F5_6_15_16_LEN  6
 
-unsigned char MaxRxSize = 120;  // Max N bytes of data in Assy
-                                 // 10/24/2013 DRC - This now also means Max Byte Count (2*max Int data size of an assembly)
-unsigned char MaxRxBufSize = 0;
-unsigned char FragMsg=FALSE; //Jignesh TODO
-//#define NO_MASTER  //debugging ONLY!
-extern uchar P_OutMsgBuffer[];  // store IO data to be produced here
-extern uchar P_InMsgBuffer[];
-extern char			IOCnxnIsPOLLED; // Rick 403
-
-extern void TriggerCOS(void);
-extern void MessageObjectFormatSuccessMessage(void);
-
-void kick_watchdog(void);
-void Mb_FactoryDefaults(void);
-void CommandFlip(unsigned char *mb_msg);
-void InitMbParam(void);
-unsigned char MB_LoadProduceBuffer(unsigned char error);
-void MessageObjectSendPollMessage(void);
-int ComputeSlaveResponseLength(unsigned char  * src,unsigned char * l);
-int ComputeMasterRecLength(unsigned char  * src,unsigned char * l);
-unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len);
-
-void UIObjectLEDRefresh(void);
-void InitSerialIO(void);
-
-unsigned char xmitDataLen; 
-extern unsigned char   num_bytes_in_buf;
-int actdone;
-
-unsigned char input_txid;
-
-extern unsigned char g_status;
-extern unsigned char g_addCode;
-/* from params.c */
-extern void LoadIdleString(void);
-extern void LoadFaultString(void);
-extern void CNXN_SetTrigger(void);
-extern unsigned char TxEmpty;
-extern unsigned char TxInProgress;
 #ifndef BYTE
 #define BYTE unsigned char
 #endif
 #ifndef WORD
 #define WORD unsigned int
-#endif						   
+#endif
 
 #ifndef TX_FIFO_OVERFLOW
 #define TX_FIFO_OVERFLOW 0x01
@@ -135,7 +105,27 @@ extern unsigned char TxInProgress;
 #endif
 
 ///////////////////////////// Modbus stuff
-#define FAULT_IDLE_STRING_SIZE     1
+#define FAULT_IDLE_STRING_SIZE      1
+#define BUFFER_OVERFLOW_ERR_BIT		1
+/* Modbus byte locations for Slave Mode input */
+#define MB_SLAVEDNETSTAT	0
+#define MB_SLAVEDNETTXID	1
+#define MB_SLAVEDNETERR		2
+#define MB_SLAVEDNETNODE	3
+#define MB_SLAVEDNETFUNC	4
+#define MB_SLAVEDNETADDR	5
+#define MB_SLAVEDNETREG		7
+#define MB_SLAVEDNETCOUNT	9
+
+static uint32_t TimerVal = 0;
+uchar NoByteSwap;
+uchar FloatSwap;
+unsigned char MaxRxSize = 120;  // Max N bytes of data in Assy
+                                 // 10/24/2013 DRC - This now also means Max Byte Count (2*max Int data size of an assembly)
+unsigned char MaxRxBufSize = 0;
+unsigned char FragMsg=FALSE; //Jignesh TODO
+unsigned char input_txid;
+unsigned char xmitDataLen;
 
 unsigned char transaction_id =0;
 unsigned char error_status;
@@ -156,14 +146,57 @@ unsigned char mb_messagesent;
 unsigned long mb_timer;
 unsigned char  MB_Status=0, MB_Exception=0;
 
-
 int waiting=0;
 int Transmitting=0;
 int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
-
 unsigned int BaudDiv[8] = { BAUD96, BAUD12, BAUD24, BAUD48, BAUD19, BAUD38 };
+
+BYTE recieve_status;//=0;
+BYTE transmit_record_counter;//=0;
+BYTE recieve_record_counter;//=0;
+BYTE ser_predelim_buf_len;
+char track=0;
+unsigned int timeout;
+unsigned int timeout_reload_value;
+unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
+unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
+unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
+unsigned char next_recieve_status; //=0;
+
+extern unsigned char   num_bytes_in_buf;
+//#define NO_MASTER  //debugging ONLY!
+extern uchar P_OutMsgBuffer[];  // store IO data to be produced here
+extern uchar P_InMsgBuffer[];
+extern char			IOCnxnIsPOLLED; // Rick 403
+extern unsigned char g_status;
+extern unsigned char g_addCode;
+extern unsigned char TxEmpty;
+extern unsigned char TxInProgress;
+extern unsigned char mainloopassydata[BYTES_OF_SER_DATA+6];
+extern unsigned char size_of_mainloopassydata;
+extern unsigned int fifo_used_mem;
+
+
+
+void Mb_FactoryDefaults(void);
+void CommandFlip(unsigned char *mb_msg);
+void InitMbParam(void);
+unsigned char MB_LoadProduceBuffer(unsigned char error);
+int ComputeSlaveResponseLength(unsigned char  * src,unsigned char * l);
+int ComputeMasterRecLength(unsigned char  * src,unsigned char * l);
+unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len);
+void InitSerialIO(void);
+void Serial_RX_ISR(void);
+void Serial_TX_ISR(void);
+void UIObjectLedDrive(uchar ledbyte1, uchar ledbyte2);
+void UIObjectLEDRefresh(void);
+void MessageObjectSendPollMessage(void);
+void kick_watchdog(void);
+
+extern void TriggerCOS(void);
+extern void MessageObjectFormatSuccessMessage(void);
 
 MODBUS_ATTRIB ModAttrib = {
    0,
@@ -193,42 +226,26 @@ const DATA_PARITY MBport_DataParity[9] = {
 	{ 8, ODD },	 // 7O2 - NOTE: needs the 9 bit mode
 };
 
-#define P3 2 //Jignesh
+// Unused code for RS232
+#define P3 2 //TODO GPIO for MODBUS RS485 TXRX pin Jignesh
 signed int TxRx = P3 ^ 2; //Jignesh
 signed int TXPIN = P3 ^ 0; //Jignesh
 signed int RXPIN = P3 ^ 1; //Jignesh
 
-/* Modbus byte locations for Slave Mode input */
-#define MB_SLAVEDNETSTAT	0
-#define MB_SLAVEDNETTXID	1
-#define MB_SLAVEDNETERR		2
-#define MB_SLAVEDNETNODE	3
-#define MB_SLAVEDNETFUNC	4
-#define MB_SLAVEDNETADDR	5
-#define MB_SLAVEDNETREG		7
-#define MB_SLAVEDNETCOUNT	9
-
-
 /*------------------------------------------------*/
-BYTE recieve_status;//=0;
-BYTE transmit_record_counter;//=0;
-BYTE recieve_record_counter;//=0;
-BYTE ser_predelim_buf_len;
-void InitRtuTimeout(void);
-unsigned int timeout;
-unsigned int timeout_reload_value;
 uchar CheckLimitParameters(unsigned char  *buf, unsigned char);
-
-extern unsigned char mainloopassydata[BYTES_OF_SER_DATA+6];
-extern unsigned char size_of_mainloopassydata;
-extern unsigned int fifo_used_mem;
-char track=0;
-
-unsigned int Ascii_Mode_InterChar_Time = 0;        // millisec
-unsigned char ASCII_Mode_InterChar_TO_flg = FALSE; // set to true whenever a timeout occurs
-unsigned char ASCII_Mode_InterChar_TO_ON = FALSE;  // set to true when ASCII_MODE to turn on timer
+void InitRtuTimeout(void);
 
 
+/**
+ * @brief RestoreSerialFromEE() read serial framing (ex. 8N1, 7N2, etc) and baud rate value
+ *        stored in EEPROM memory. It will call serila initialize fuction also.
+ *
+ *
+ * @param void 					- none
+ * @return void 				- none
+ *
+ */
 void RestoreSerialFromEE (void)
 {
 	Ascii.Framing  = Read_EE_Byte (EE_SERIAL_CHARACTER_FORMAT);
@@ -236,6 +253,15 @@ void RestoreSerialFromEE (void)
 	InitSerialIO ();
 }
 
+/**
+ * @brief InitSerialIO() It will initialize serial configuration with various parameters
+ *        eith respoect to MODBUS mode configuration.
+ *
+ *
+ * @param void 					- none
+ * @return void 				- none
+ *
+ */
 void InitSerialIO(void)
 {
    static char init_status = 0;
@@ -289,35 +315,56 @@ void InitSerialIO(void)
 	TriggerCOS();
 }
 
-BYTE RecvChar(void)
-{
-   return 0;
-}
-
+/**
+ * @brief XmitChar() Function to send the byte to UART function.
+ *
+ *
+ * @param BYTE 					- Character byte
+ * @return void 				- None
+ *
+ */
 void XmitChar(BYTE chr)
 {
 	SH_Put_Char(chr);
 }
 
-#define BUFFER_OVERFLOW_ERR_BIT	1
-
-unsigned char next_recieve_status; //=0;
-void Serial_RX_ISR(void);
-void Serial_TX_ISR(void);
-
-
 //Application intterface functions needed for the group 2 allocate
 // ILX-8  This is where the Procuce and Consume conneciton size are set
-// This is size of PLC_Header plus the MB_TXRX_Size  
+// This is size of PLC_Header plus the MB_TXRX_Size
+/**
+ * @brief ComputeIOConsumeSize() It will return the IO consume size.
+ *
+ *
+ * @param void 						- none
+ * @return unsigned char 			- Consume size
+ *
+ */
 unsigned char ComputeIOConsumeSize(void)
 {
    return (Ascii.ReceiveSize); //jtm 02-28-2013
 }
+/**
+ * @brief ComputeIOProduceSize() It will return the IO produce size.
+ *
+ *
+ * @param void none
+ * @return unsigned char Produce size
+ *
+ */
 unsigned char ComputeIOProduceSize(void)
 {
    return (Ascii.TransmitSize); //jtm 02-28-2013
 }
 
+/**
+ * @brief UpdateCRC() It will calculate the CRC value for new data.
+ *
+ *
+ * @param BYTE data
+ * @param WORD CRC value
+ * @return WORD final CRC value
+ *
+ */
 WORD UpdateCRC(BYTE mydata,WORD crc)
 {
    BYTE j;
@@ -330,7 +377,15 @@ WORD UpdateCRC(BYTE mydata,WORD crc)
    }
    return crc;
 }
-
+/**
+ * @brief bin_char() It will convert the ASCII characters to binary value.
+ *
+ *
+ * @param BYTE ASCII higher value
+ * @param BYTE ASCII lower value
+ * @return BYTE binary value
+ *
+ */
 BYTE bin_char(BYTE char_hi,BYTE char_lo)  //Convert 2 ASCII characters to binary
 {
    BYTE bin1, bin2;
@@ -349,7 +404,14 @@ BYTE bin_char(BYTE char_hi,BYTE char_lo)  //Convert 2 ASCII characters to binary
    }
    return(bin1 | bin2);
 }
-
+/**
+ * @brief HexToBin() It will calculate and return hex value to bin value.
+ *
+ *
+ * @param BYTE * data pointer
+ * @return BYTE final CRC value
+ *
+ */
 BYTE HexToBin(BYTE *Bytestr)
 {
    return(bin_char(Bytestr[0],Bytestr[1]));
@@ -357,10 +419,22 @@ BYTE HexToBin(BYTE *Bytestr)
 
 // Method below Normalizes the MB ASCII message received
 // into a common binary message buffer and checks the lrc
+
+/**
+ * @brief NormalizeMBAsciiRcvMsg()  Method below Normalizes the MB ASCII message received
+ * 									into a common binary message buffer and checks the lrc
+ * @param unsigned char 		- MB_Exception
+ * @param unsigned char * 		- Pointer to receive buffer
+ * @param unsigned char 		- mb_rcv_buf_len
+ * @param unsigned char * 		- mb_normalized_rcv_buf Normalized buffer
+ * @param unsigned char * 		- mb_normalized_rcv_buf_len
+ * @return unsigned char 		-  CRC error or success.
+ *
+ */
 unsigned char NormalizeMBAsciiRcvMsg(unsigned char MB_Exception, unsigned char  * mb_rcv_buf, unsigned char mb_rcv_buf_len, unsigned char  * mb_normalized_rcv_buf, unsigned char * mb_normalized_rcv_buf_len)
 {
    int i = 0;
-   unsigned char LRC = 0;   
+   unsigned char LRC = 0;
    unsigned char bytestr[3] = {0,0,0};
    unsigned char byte = 0;
 
@@ -392,6 +466,20 @@ unsigned char NormalizeMBAsciiRcvMsg(unsigned char MB_Exception, unsigned char  
 
 // 9/10/2013 DRC - method below to normalized the MB RTU message received
 // into a common binary message buffer and checks the crc
+
+/**
+ * @brief NormalizeMB_RTU_RcvMsg()  method below to normalized the MB RTU message received
+ *									into a common binary message buffer and checks the crc
+ *
+ *
+ * @param unsigned char 		- MB_Exception
+ * @param unsigned char * 		- Pointer to receive buffer
+ * @param unsigned char 		- mb_rcv_buf_len
+ * @param unsigned char * 		- mb_normalized_rcv_buf Normalized buffer
+ * @param unsigned char * 		- mb_normalized_rcv_buf_len
+ * @return unsigned char 		- return CRC error or success.
+ *
+ */
 unsigned char NormalizeMB_RTU_RcvMsg(unsigned char MB_Exception, unsigned char  * mb_Rcv_Buf, unsigned char mb_Rcv_Buf_Len, unsigned char  * mb_normalized_rcv_buf, unsigned char * mb_normalized_rcv_buf_len)
 {
    WORD crc = 0xFFFF;
@@ -410,7 +498,7 @@ unsigned char NormalizeMB_RTU_RcvMsg(unsigned char MB_Exception, unsigned char  
       if (crc != recv_crc) {
         return CHECKSUM_ERROR;
       }
-      else 
+      else
       {
          return 0;
       }
@@ -420,6 +508,14 @@ unsigned char NormalizeMB_RTU_RcvMsg(unsigned char MB_Exception, unsigned char  
    }
 }
 
+/**
+ * @brief mak_ASCII() Function below to convert binary nibble to ASCII character.
+ *
+ *
+ * @param BYTE						- data nibble of byte
+ * @return BYTE			 			- Return to ASCII value
+ *
+ */
 BYTE mak_ASCII(BYTE datum) // Convert binary nibble to Hex ASCII character
 {
    BYTE ASC_char;
@@ -435,12 +531,29 @@ BYTE mak_ASCII(BYTE datum) // Convert binary nibble to Hex ASCII character
    return(ASC_char);
 }
 
+/**
+ * @brief BinToHex() Function below to convert binary data to HEX value.
+ *
+ *
+ * @param BYTE *					- Pointer to data array
+ * @return void			 			- Returnil.
+ *
+ */
 void BinToHex(BYTE Byte, BYTE *Bytestr)
 {
    Bytestr[0] = mak_ASCII((BYTE)(Byte >> 4));
    Bytestr[1] = mak_ASCII((BYTE)(Byte & 0x0F));
 }
 
+/**
+ * @brief ComputeCommandLength() Function below to calculate command size
+ *
+ *
+ * @param unsigned char * src 		- Pointe to command
+ * @param unsigned char * l 		- Pointer to command length
+ * @return unsigned char 			- Return to success or fail.
+ *
+ */
 int ComputeCommandLength(unsigned char  * src,unsigned char * l)
 {
    switch(src[1])
@@ -498,6 +611,15 @@ int ComputeCommandLength(unsigned char  * src,unsigned char * l)
    return 0;
 }
 
+/**
+ * @brief ComputeSlaveResponseLength() Function below to calculate slave response length size
+ *
+ *
+ * @param unsigned char * src 		- Pointe to command
+ * @param unsigned char * l 		- Pointer to command length
+ * @return unsigned char 			- Return to success or fail.
+ *
+ */
 int ComputeSlaveResponseLength(unsigned char  * src,unsigned char * l)
 {
    switch(src[1] & 0x7F) //ignore error bit
@@ -506,7 +628,7 @@ int ComputeSlaveResponseLength(unsigned char  * src,unsigned char * l)
    case 2:
    case 3:
    case 4:
-      *l=7+src[6]; 
+      *l=7+src[6];
       break;
    case 5:
    case 6:
@@ -520,6 +642,15 @@ int ComputeSlaveResponseLength(unsigned char  * src,unsigned char * l)
    return 0;
 }
 
+/**
+ * @brief ComputeMasterRecLength() Function below to calculate Master response length size
+ *
+ *
+ * @param unsigned char * src 		- Pointe to command
+ * @param unsigned char * l 		- Pointer to command length
+ * @return unsigned char 			- Return to success or fail.
+ *
+ */
 int ComputeMasterRecLength(unsigned char  * src,unsigned char * l)
 {
    switch(src[1])
@@ -543,6 +674,14 @@ int ComputeMasterRecLength(unsigned char  * src,unsigned char * l)
    return 0;
 }
 
+/**
+ * @brief Word_Flip() Function below to flip the word and uupdate the same buffer
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source word
+ * @return void 					- None
+ *
+ */
 void Word_Flip(unsigned char  * src)
 {
    unsigned char tmpbyte;
@@ -552,6 +691,14 @@ void Word_Flip(unsigned char  * src)
 }
 
 //!!! mb_msg must be pointing at the modbus address !!!
+/**
+ * @brief CommandFlip() Function to flip the modbus address command using word flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void CommandFlip(unsigned char  *mb_msg)
 {
    unsigned char i;//, i2;
@@ -589,6 +736,14 @@ void CommandFlip(unsigned char  *mb_msg)
 }
 
 //!!! mb_msg must be pointing at the modbus address !!!
+/**
+ * @brief CommandFlipSlave() Function to flip the modbus slave address command using word flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void CommandFlipSlave(unsigned char  *mb_msg)
 {
    unsigned char i;//, i2;
@@ -623,6 +778,15 @@ void CommandFlipSlave(unsigned char  *mb_msg)
    }
 }
 
+/**
+ * @brief ResponseFlipSlave() Function to flip the modbus slave response using word flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @param uchar 					- Flag to decide swap or no swap
+ * @return void 					- None
+ *
+ */
 void ResponseFlipSlave(unsigned char  * mb_msg, uchar noSwap)
 {
    unsigned char i;
@@ -631,11 +795,11 @@ void ResponseFlipSlave(unsigned char  * mb_msg, uchar noSwap)
    case 3:
    case 4:
       mb_msg[2] = mb_msg[6];                // ILX-17  Move the byte count to right after func code.
-      for (i=0; i< mb_msg[2];i+=2)          // ILX-17 Loop over byte count which is at msg[6]  accounting for skipped ADDR[2,3] And QAUNT[4,5] 
+      for (i=0; i< mb_msg[2];i+=2)          // ILX-17 Loop over byte count which is at msg[6]  accounting for skipped ADDR[2,3] And QAUNT[4,5]
       {
          if (!noSwap)
          {
-            Word_Flip(mb_msg+7+i); 
+            Word_Flip(mb_msg+7+i);
          }
       }
       break;
@@ -649,11 +813,11 @@ void ResponseFlipSlave(unsigned char  * mb_msg, uchar noSwap)
       if (noSwap) break;
       Word_Flip(mb_msg+3);
       Word_Flip(mb_msg+5);
-      Word_Flip(mb_msg+7);				
+      Word_Flip(mb_msg+7);
       break;
    case 15:
    case 16:
-      if (noSwap) break;		
+      if (noSwap) break;
       Word_Flip(mb_msg+2);
       Word_Flip(mb_msg+4);
       break;
@@ -663,6 +827,14 @@ void ResponseFlipSlave(unsigned char  * mb_msg, uchar noSwap)
 }
 
 //I need work still as well.
+/**
+ * @brief ResponseFlip() Function to flip the modbus response using word flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void ResponseFlip(unsigned char  * mb_msg)
 {
    unsigned char i;
@@ -694,6 +866,14 @@ void ResponseFlip(unsigned char  * mb_msg)
    }
 }
 
+/**
+ * @brief ResponseMasterFlip() Function to flip the modbus master response using word flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void ResponseMasterFlip(unsigned char  * mb_msg)
 {
    unsigned char i;
@@ -744,6 +924,13 @@ void ResponseMasterFlip(unsigned char  * mb_msg)
 #define SERVICE      explicit_msg_data[SERVICE_CODE_INDEX]
 #define INSTANCE     explicit_msg_data[INSTANCE_INDEX]
 
+/**
+ * @brief Long_Flip() Function to flip pair of words bytes of the buffer.
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void Long_Flip(unsigned char  * ptr) // swap words pairs
 {
    unsigned char tmpWrd[2];
@@ -756,19 +943,44 @@ void Long_Flip(unsigned char  * ptr) // swap words pairs
    *(ptr + 3) = tmpWrd[1];
 }
 
+/**
+ * @brief ByteWord_Flip() Function to flip the complete 4 bytes using word flip & long flip function.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void ByteWord_Flip(unsigned char  * src)
 {
    Word_Flip(src);
    Word_Flip(src+2);
    Long_Flip(src);
 }
-
+/**
+ * @brief Bytes_Flip() Function to flip the bytes using word flip.
+ *
+ *
+ * @param unsigned char * src 		- Pointe to source message.
+ * @return void 					- None
+ *
+ */
 void Bytes_Flip(unsigned char  * src)
 {
    Word_Flip(src);
    Word_Flip(src+2);
 }
 
+/**
+ * @brief FltSwap_Command_Flip() Function to filter flip the modbus master & slave command.
+ *
+ *
+ * @param unsigned char * msg 			- Pointer to source message.
+ * @param unsigned char mmmmsg_len 		- Message length
+ * @param unsigned char mmmmsg_len 		- mstr_slve_type value
+ * @return unsigned char 				- Return 0 for success
+ *
+ */
 unsigned char FltSwap_Command_Flip( unsigned char  * msg, unsigned char msg_len, unsigned char mstr_slve_type )
 {
    unsigned char i;
@@ -782,7 +994,7 @@ unsigned char FltSwap_Command_Flip( unsigned char  * msg, unsigned char msg_len,
    if ( mstr_slve_type == MB_MASTERMODE ) {
       func_loc = DNO_FUNC_ - DNO_STATION_ID;       // Subtract DNO_STATION_ID location because message pointer starts at station id
       byte_Cnt = DNO_BYTE_COUNT - DNO_STATION_ID;      // Subtract DNO_STATION_ID            "               "
-      reg_data_start = DNO_DATA_STRT - DNO_STATION_ID; // Subtract DNO_STATION_ID            "               " 
+      reg_data_start = DNO_DATA_STRT - DNO_STATION_ID; // Subtract DNO_STATION_ID            "               "
    }
    else { // mstr_slve_type = MB_SLAVEMODE
       func_loc = MB_FUNC_LOC;
@@ -821,7 +1033,7 @@ unsigned char FltSwap_Command_Flip( unsigned char  * msg, unsigned char msg_len,
             switch ( FloatSwap ) {
 
                case FLT_SWAP_WORD_PAIRS:
-                  Long_Flip ( msg + i ); 
+                  Long_Flip ( msg + i );
                   break;
 
                case FLT_SWAP_BYTES_WORDS:
@@ -838,7 +1050,16 @@ unsigned char FltSwap_Command_Flip( unsigned char  * msg, unsigned char msg_len,
 
    return 0;
 }
-
+/**
+ * @brief FltSwap_Response_Flip() Function to filter flip the modbus master & slave response.
+ *
+ *
+ * @param unsigned char * msg 			- Pointer to source message.
+ * @param unsigned char mmmmsg_len 		- Message length
+ * @param unsigned char mmmmsg_len 		- mstr_slve_type value
+ * @return unsigned char 				- Return 0 for success
+ *
+ */
 unsigned char FltSwap_Response_Flip ( unsigned char  * msg, unsigned char msg_len, unsigned char mstr_slve_type )
 {
    unsigned char i;
@@ -868,7 +1089,7 @@ unsigned char FltSwap_Response_Flip ( unsigned char  * msg, unsigned char msg_le
                if ( mstr_slve_type == MB_MASTERMODE ) {
                   return FLOAT_WORD_SWAP_UNEVEN_WORD_COUNT_ERROR;
                }
-               else { 
+               else {
                   // if slave mode do nothing but return and let the message
                   // go through without trying to swap words
                   return 0;
@@ -896,12 +1117,26 @@ unsigned char FltSwap_Response_Flip ( unsigned char  * msg, unsigned char msg_le
    return 0;
 }
 
-
+/**
+ * @brief Start_Timeout() Initialized timeout value to start ASCII timer.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void Start_Timeout(void)
 {
    timeout=timeout_reload_value;
 }
-
+/**
+ * @brief StopTimeout() Functions to stop timer for ASCII timer.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void StopTimeout(void)
 {
    timeout=0;
@@ -912,26 +1147,57 @@ BYTE TimerL,TimerH;
 const unsigned int RTU_Timeout[6] = { 29166, 14583, 7292, 3646, 1823, 912 };
 // 1200>0.029166667, 2400>0.014583333, 4800>0.007291667, 9600>0.003645833, 19200>0.001822917, 38400>0.000911458
 
-static uint32_t TimerVal = 0;
+
+/**
+ * @brief InitRtuTimeout() Initialized RTU timer with buad rate based timeout.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void InitRtuTimeout(void) //called from InitSerialIO()
 {
 	TimerVal = RTU_Timeout[Ascii.BaudRate];
 	MX_TIM15_Init (TimerVal);
 }
 
-void UIObjectLedDrive(uchar ledbyte1, uchar ledbyte2);
-
+/**
+ * @brief MB_StartRtuTimeout() Start a timer for RTU byte gets started receving.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void MB_StartRtuTimeout(void)// a 3.5 CHARACTER timeout
 {
 	MX_TIM15_Stop();
 	MX_TIM15_Start();
 }
 
+
+/**
+ * @brief MB_StopRtuTimeout() Stop a timer for R.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void MB_StopRtuTimeout(void)
 {
 	MX_TIM15_Stop();
 }
 
+/**
+ * @brief MB_Rtu_TimedOut() Function gets called when RTU baud rate based timeout gets over.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void MB_Rtu_TimedOut(void) //interrupt 1  // using 2
 {
    MX_TIM15_Stop();
@@ -949,12 +1215,28 @@ void MB_Rtu_TimedOut(void) //interrupt 1  // using 2
    ProcessMbMessage=1;  //process the message
 }
 
-void MB_Strt_Ascii_Mde_IntChr_Timeout(void) 
+/**
+ * @brief MB_Strt_Ascii_Mde_IntChr_Timeout() Function to start timer when inter char starts receiving.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
+void MB_Strt_Ascii_Mde_IntChr_Timeout(void)
 {
    Ascii_Mode_InterChar_Time = 0;
    ASCII_Mode_InterChar_TO_ON = TRUE;
 }
 
+/**
+ * @brief MB_Stp_Ascii_Mde_IntChr_Timeout() Function to stop timer when inter char starts receiving.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void MB_Stp_Ascii_Mde_IntChr_Timeout(void)
 {
    ASCII_Mode_InterChar_TO_ON = FALSE;
@@ -962,8 +1244,13 @@ void MB_Stp_Ascii_Mde_IntChr_Timeout(void)
 
 unsigned char  * mb_data_ptr;
 
-
-
+/**
+ * @brief Serial_TX_ISR() It will transmit the byte by byte until last byte on serial TX interrupt.
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void Serial_TX_ISR(void)
 {
    //Jignesh TI=0;
@@ -979,7 +1266,7 @@ void Serial_TX_ISR(void)
    {
       Transmitting=0;
       mb_messagesent = 1;  //tell system that message has been sent
-      mb_data_buffer_len = 0;//make sure the input buffer is ready to go		
+      mb_data_buffer_len = 0;//make sure the input buffer is ready to go
       if (ModbusConfig.type == MB_MASTERMODE) {
          // start wait timer to wait for MB response only in MB_MASTERMODE here
          waiting=1;           //tell system we are waiting for a response (timeout active)
@@ -988,7 +1275,7 @@ void Serial_TX_ISR(void)
       else { // ModbusConfig.type == MB_SLAVEMODE
          // On successfull transmit, kill the wait timer to prevent an error response from
          // being sent back to the MB device
-         waiting=0;  // tell the system we are not waiting for a response anymore.         
+         waiting=0;  // tell the system we are not waiting for a response anymore.
          MB_Status = READY_FOR_COMMAND;
       }
       TxRx = TxRx_RECV; //set 485 chip to receive
@@ -1012,6 +1299,14 @@ char recChar;
 unsigned char RiCount = 0;
 void UIObjectLEDRefresh(void);
 
+/**
+ * @brief Serial_RX_ISR() It will receive and store the byte by byte until MODBUS last byte
+ * 			gets receive and flag gets set for success case or fail case.
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void Serial_RX_ISR(void)
 {
    err = 0;
@@ -1102,24 +1397,24 @@ void Serial_RX_ISR(void)
 
          default:
             err=1;
-         }				
-         
+         }
+
          if(err)
          {
-            if ( ( !MB_Exception ) && ( StIn == TRUE ) ) { 
+            if ( ( !MB_Exception ) && ( StIn == TRUE ) ) {
                // flag invalid messag only if start chr ':' has been received
                MB_Exception = MODBUS_INVALID_MESSAGE;
             }
             StIn = CrIn = FALSE;         //clear flags
             mb_data_buffer_len = 0;      //clear buffer
             //Jignesh RI=0;
-            return;				
+            return;
          }
 
          if ( mb_data_buffer_len == 0 ) {
             // make sure StIn and CrIn flags are reset in case an inter char timeout occurred just before this char
             // was received.
-            StIn = CrIn = FALSE;  
+            StIn = CrIn = FALSE;
             if ( recChar == ':' ) {
                StIn = TRUE;
                MB_Exception = 0;
@@ -1203,10 +1498,10 @@ void Serial_RX_ISR(void)
    {
       // Process what we have with a MB_Exception = INVALID_DATALENGTH_ERROR
       if(ModAttrib.Mode==ASCII) {
-         // Make sure bogus LCR, CR, and LF is added to end of message so that it is processed 
+         // Make sure bogus LCR, CR, and LF is added to end of message so that it is processed
          // properly into the DN buffer
          if ( ( CrIn == FALSE ) && ( recChar!=0x0d) ) {
-            // assume there is not an LCR in the message even though we are not sure 
+            // assume there is not an LCR in the message even though we are not sure
             mb_data_buffer[mb_data_buffer_len] = 'F';      // bogus LCR high character
             mb_data_buffer[mb_data_buffer_len + 1] = 'F';  // bogus LCR low character
             mb_data_buffer[mb_data_buffer_len + 2] = 0x0d; // CR
@@ -1231,8 +1526,8 @@ void Serial_RX_ISR(void)
          StIn = CrIn = FALSE; //clear flags
       }
       else { // ModAttrib.Mode==RTU
-         // 
-         // add bogus CRC at end but continue getting all bytes from the UART without 
+         //
+         // add bogus CRC at end but continue getting all bytes from the UART without
          // adding them to the buffer
          mb_data_buffer[mb_data_buffer_len] = 0xFF;
          mb_data_buffer[mb_data_buffer_len + 1] = 0xFF;
@@ -1255,13 +1550,21 @@ void Serial_RX_ISR(void)
    //Jignesh RI=0;
 }
 
+/**
+ * @brief MBLoad() It will parse and reverse the POLL request from DNET and create the MB PDU for
+ * 					MODBUS mode configuration.
+ *
+ * @param unsigned char  *src)  	- Pointer to source buffer
+ * @return void 					- None
+ *
+ */
 int MBLoad(unsigned char  *src)
 {
    unsigned char srclen = 0;
    unsigned char  *to = mb_data_buffer_out;
    unsigned char byte;
    unsigned char indx = 0;
-   //------------------------------------------------------------------------ 
+   //------------------------------------------------------------------------
    // src contains the DNET receved POLL and is pointing at the Station ID
    // so Parse DNET Poll into MB_PDU and calc the MB message length
    //------------------------------------------------------------------------
@@ -1314,15 +1617,15 @@ int MBLoad(unsigned char  *src)
       {
          srclen = 3;
       }
-   }		
+   }
    //------------------------------------------------------------------------------------
    // srclen contains the length of the MB_PDU to send, add check and delimiters
    //   ie MB message to be built is  <START> {--MB_PDU--} <CHK_H><CHK_L><END>
    // Word values after func or byte count are swapped per configuration in above flip()
    // Just need to format and send the data based on ASCII or RTU selection
    //------------------------------------------------------------------------------------
-   dest_addr=src[0];				
-   function_code=src[1];      
+   dest_addr=src[0];
+   function_code=src[1];
 
    switch(ModAttrib.Mode)
    {
@@ -1344,11 +1647,11 @@ int MBLoad(unsigned char  *src)
                continue;
             }
             else
-            {  
+            {
                lrc += byte;
                BinToHex(byte,bytestr);
                (*(to++)) = bytestr[0];
-               (*(to++)) = bytestr[1];  
+               (*(to++)) = bytestr[1];
             }
          }
 
@@ -1375,7 +1678,7 @@ int MBLoad(unsigned char  *src)
             else
             {
                crc = UpdateCRC(byte,crc);
-               (*(to++)) = byte;	   
+               (*(to++)) = byte;
             }
          }
 
@@ -1384,12 +1687,19 @@ int MBLoad(unsigned char  *src)
       } //End RTU_MODE Variable Scope
    } //end switch(ModAttrib.Mode)
 
-   //length computation... a novel solution by ed. 
+   //length computation... a novel solution by ed.
    //the destination pointer less the origional value of the destination pointer must equal the length
    mb_data_buffer_out_len=(unsigned char)((unsigned int) ( ((unsigned int)to)-((unsigned int)mb_data_buffer_out) ));
    return 1;
 }
-
+/**
+ * @brief StartMbSend() It will send the MODBUS data tp serial interface.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void StartMbSend(void)
 {
    if(mb_data_buffer_out_len)
@@ -1420,7 +1730,7 @@ void StartMbSend(void)
 **    >>>>>>  Add any  to deal with configuration header then start processing at TX_ID
 **    0  Tranaction ID       Need to put in message config word  consistiong 3 bits  Swap, Rst Ctrs, Cold Boot
 **    1  MB_PDU Length
-**    2  Station ID						Start of MB message must insert start mode Delim 
+**    2  Station ID						Start of MB message must insert start mode Delim
 **    3  Function							Start of MB_PDU
 **    4  Addr_H
 **    5  Addr_L
@@ -1432,13 +1742,30 @@ void StartMbSend(void)
 **
 **  3-3-13   Rick Ales
 ***************************************************************************************************/
-//extern int main(void);
-
+/**
+ * @brief WriteExceptionToQue() Function will add the exception to message to pass main loop data.
+ *
+ *
+ * @param void 						- None
+ * @return void 					- None
+ *
+ */
 void WriteExceptionToQue(void)
 {
    mainloopassydata[1] = MB_Exception;
 }
 
+/**
+ * @brief MBM_QueMbTxMsg()
+ *  Takes the msg created when a POLL message containing OUTPUT ASSY 102 data is received
+ *  and queues a message to the serial interface if the transaction ID has changed
+ *  Called from:
+ *         2253.dn_msgobj>MessageObjectISR()
+ *
+ * @param Pointer *P_InBuf 			- Input Buffer to get the data
+ * @return void 					- None
+ *
+ */
 void MBM_QueMbTxMsg(unsigned char  *P_InBuf)
 {
 	 if(P_InBuf[MBM_CMDS] == 0xFF) goto TESTSKIP;
@@ -1448,7 +1775,7 @@ void MBM_QueMbTxMsg(unsigned char  *P_InBuf)
       //TODO SoftReset = SOFT_RESET_ACTIVE;
    }
    if (P_InBuf[MBM_CMDS] & MBM_CMDS_RSTCTR)
-   {		
+   {
       // (ResetCounters);
    }
    if (P_InBuf[MBM_CMDS] & MBM_CMDS_SWAP)
@@ -1506,17 +1833,25 @@ TESTSKIP:
          MB_Status = READY_FOR_COMMAND;
       }
 
-      if ( MB_Exception ) { 
+      if ( MB_Exception ) {
          // if by chance a 1 was returned but MB_Exception != 0 set MB_Status = READY_FOR_COMMAND
          MB_Status = READY_FOR_COMMAND;
       }
 
       transaction_id = P_InBuf[DNO_TX_ID];
       TriggerCOS();
-   } 
+   }
    return;
 }
 
+/**
+ * @brief Producing() Function to prepare the producing buffer.
+ *
+ *
+ * @param MSG * 					- Pointer to message struct data
+ * @return void 					- None
+ *
+ */
 void Producing(MSG  *msg)
 {
    unsigned char  * from=produce_buffer;
@@ -1542,12 +1877,28 @@ void Producing(MSG  *msg)
    }
 }
 
+/**
+ * @brief MB_GetProtocol() Functions is used to get the protocol mode.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_GetProtocol(MSG  * msg)
 {
    msg->buflen=1;
    msg->buf[0]=ModAttrib.Mode;
 }
 
+/**
+ * @brief MB_SetProtocol() Functions is used to set the protocol mode in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetProtocol(MSG  * msg)
 {
   if(!DnCheckAttrLen(msg,1,1))return;
@@ -1555,7 +1906,14 @@ void MB_SetProtocol(MSG  * msg)
   EEPROMObjectWriteAndUpdate(EE_MODBUSMODE_ADDR,msg->buf[0]);
   msg->buflen=0;
 }
-
+/**
+ * @brief GetReceiveSize() Functions is used to get the receive size.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void GetReceiveSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
@@ -1563,6 +1921,14 @@ void GetReceiveSize(MSG  * msg)
    msg->buf[0]=Ascii.ReceiveSize;
 }
 
+/**
+ * @brief GetTransmitSize() Functions is used to get the transmit size.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void GetTransmitSize(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
@@ -1570,6 +1936,14 @@ void GetTransmitSize(MSG  * msg)
    msg->buf[0]=Ascii.TransmitSize;
 }
 
+/**
+ * @brief SetTransmitSize() Functions is used to set the transmit size in EEPROM struct..
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void SetTransmitSize(MSG  * msg)
 {
    if(msg->buf[0] > MAX_MODBUS_MESSAGE_SIZE)
@@ -1583,6 +1957,14 @@ void SetTransmitSize(MSG  * msg)
    return;
 }
 
+/**
+ * @brief SetReceiveSize() Functions is used to set the receive size in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void SetReceiveSize(MSG  * msg)
 {
    if(msg->buf[0] > MAX_MODBUS_MESSAGE_SIZE)
@@ -1595,7 +1977,14 @@ void SetReceiveSize(MSG  * msg)
    //InitSerialIO();
    return;
 }
-
+/**
+ * @brief GetFraming() Functions is used to get the framing of UART.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void GetFraming(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
@@ -1603,6 +1992,14 @@ void GetFraming(MSG  * msg)
    msg->buf[0]=Ascii.Framing;
 }
 
+/**
+ * @brief SetFraming() Functions is used to set the framing of UART in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void SetFraming(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
@@ -1613,13 +2010,21 @@ void SetFraming(MSG  * msg)
    else if(msg->buf[0]>8)
    {
       g_status=INVALID_ATTRIBUTE_DATA;
-      return;   
+      return;
    }
    Ascii.Framing = msg->buf[0];
    EEPROMObjectWriteAndUpdate(EE_SERIAL_CHARACTER_FORMAT,msg->buf[0]);
    msg->buflen=0;
 }
 
+/**
+ * @brief GetBaudRate() Functions to get the baud rate of UART.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void GetBaudRate(MSG  * msg)
 {
    if(msg->buflen>0) g_status=TOO_MUCH_DATA_2;
@@ -1627,6 +2032,181 @@ void GetBaudRate(MSG  * msg)
    msg->buf[0]= Ascii.BaudRate;
 }
 
+/**
+ * @brief MB_GetType() Functions to get the type of modbus. .
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetType(MSG  * msg)
+{
+   msg->buflen=1;
+   msg->buf[0]=ModbusConfig.type;
+}
+
+/**
+ * @brief MB_GetTimeout() Functions to get the timeout of modbus.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetTimeout(MSG  * msg)
+{
+   msg->buflen=4;
+   // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first
+   msg->buf[0]=ModbusConfig.timeout & 0xFF;
+   msg->buf[1]=ModbusConfig.timeout >> 8;
+   msg->buf[2]=ModbusConfig.timeout >> 16;
+   msg->buf[3]=ModbusConfig.timeout >> 24;
+}
+
+/**
+ * @brief MB_GetSlaveID() Functions to get the slave ID.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetSlaveID(MSG  * msg)
+{
+   msg->buflen = 2;
+   msg->buf[0] = ModbusConfig.slaveID;
+   msg->buf[1] = 0;                    //jtm 02-27-2013  zero top byte (always 0)
+}
+
+/**
+ * @brief MB_GetCoil_StartAddr() Functions to get the coil start address.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetCoil_StartAddr(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.Coil_StartAddr & 0xFF;
+   msg->buf[1]=ModbusConfig.Coil_StartAddr >> 8;
+}
+
+/**
+ * @brief MB_GetCoil_Count() Functions to get the coil count.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetCoil_Count(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.Coil_Count & 0xFF;
+   msg->buf[1]=ModbusConfig.Coil_Count >> 8;
+}
+
+/**
+ * @brief MB_GetDiscInput_Count() Functions to get the descrete input start address.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetDiscInput_StartAddr(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.DiscInput_StartAddr & 0xFF;
+   msg->buf[1]=ModbusConfig.DiscInput_StartAddr >> 8;
+}
+
+/**
+ * @brief MB_GetDiscInput_Count() Functions to get the descrete input count.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetDiscInput_Count(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.DiscInput_Count & 0xFF;
+   msg->buf[1]=ModbusConfig.DiscInput_Count >> 8;
+}
+
+/**
+ * @brief MB_GetInReg_StartAddr() Functions to get the input register start address.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetInReg_StartAddr(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.InReg_StartAddr & 0xFF;
+   msg->buf[1]=ModbusConfig.InReg_StartAddr >> 8;
+}
+
+/**
+ * @brief MB_GetInReg_Count() Functions to get the input register count.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetInReg_Count(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.InReg_Count & 0xFF;
+   msg->buf[1]=ModbusConfig.InReg_Count >> 8;
+}
+
+/**
+ * @brief MB_GetHoldReg_StartAddr() Functions to get the holding register start address.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetHoldReg_StartAddr(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.HoldReg_StartAddr & 0xFF;
+   msg->buf[1]=ModbusConfig.HoldReg_StartAddr >> 8;
+}
+
+/**
+ * @brief MB_GetHoldReg_Count() Functions to get the holding register count.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
+void MB_GetHoldReg_Count(MSG  * msg)
+{
+   msg->buflen=2;
+   msg->buf[0]=ModbusConfig.HoldReg_Count & 0xFF;
+   msg->buf[1]=ModbusConfig.HoldReg_Count >> 8;
+}
+
+/**
+ * @brief SetBaudRate() Functions to set the baud rate of UART in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void SetBaudRate(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
@@ -1645,85 +2225,14 @@ void SetBaudRate(MSG  * msg)
    msg->buflen=0;
 }
 
-void MB_GetType(MSG  * msg)
-{
-   msg->buflen=1;
-   msg->buf[0]=ModbusConfig.type;
-}
-
-void MB_GetTimeout(MSG  * msg)
-{
-   msg->buflen=4;
-   // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first  
-   msg->buf[0]=ModbusConfig.timeout & 0xFF;
-   msg->buf[1]=ModbusConfig.timeout >> 8; 
-   msg->buf[2]=ModbusConfig.timeout >> 16;
-   msg->buf[3]=ModbusConfig.timeout >> 24; 
-}
-
-void MB_GetSlaveID(MSG  * msg)
-{
-   msg->buflen = 2;
-   msg->buf[0] = ModbusConfig.slaveID;
-   msg->buf[1] = 0;                    //jtm 02-27-2013  zero top byte (always 0)
-}
-
-void MB_GetCoil_StartAddr(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.Coil_StartAddr & 0xFF;
-   msg->buf[1]=ModbusConfig.Coil_StartAddr >> 8;
-}
-
-void MB_GetCoil_Count(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.Coil_Count & 0xFF;
-   msg->buf[1]=ModbusConfig.Coil_Count >> 8;
-}
-
-void MB_GetDiscInput_StartAddr(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.DiscInput_StartAddr & 0xFF;
-   msg->buf[1]=ModbusConfig.DiscInput_StartAddr >> 8;
-}
-
-void MB_GetDiscInput_Count(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.DiscInput_Count & 0xFF;
-   msg->buf[1]=ModbusConfig.DiscInput_Count >> 8;
-}
-
-void MB_GetInReg_StartAddr(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.InReg_StartAddr & 0xFF;
-   msg->buf[1]=ModbusConfig.InReg_StartAddr >> 8;
-}
-
-void MB_GetInReg_Count(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.InReg_Count & 0xFF;
-   msg->buf[1]=ModbusConfig.InReg_Count >> 8;
-}
-
-void MB_GetHoldReg_StartAddr(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.HoldReg_StartAddr & 0xFF;
-   msg->buf[1]=ModbusConfig.HoldReg_StartAddr >> 8;
-}
-
-void MB_GetHoldReg_Count(MSG  * msg)
-{
-   msg->buflen=2;
-   msg->buf[0]=ModbusConfig.HoldReg_Count & 0xFF;
-   msg->buf[1]=ModbusConfig.HoldReg_Count >> 8;
-}
-
+/**
+ * @brief MB_SetType() Functions to set the type of modbus in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetType(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,1,1))
@@ -1735,7 +2244,14 @@ void MB_SetType(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_TYPE_NVRAM_ADDR,msg->buf[0]);
 	msg->buflen=0;
 }
-
+/**
+ * @brief MB_SetTimeout() Functions to set the timeout value in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetTimeout(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,4,4))
@@ -1743,20 +2259,27 @@ void MB_SetTimeout(MSG  * msg)
 	     FragMsg=FALSE;
 		 return;
 	 }
-   // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first  
+   // note: PLC is little endian, LSB first.   c505 processor is big endian, MSB first
    ModbusConfig.timeout = (long) (msg->buf[0] + (msg->buf[1] << 8)+(msg->buf[2] << 16)+(msg->buf[3] << 24));
    msg->buf[3]=ModbusConfig.timeout >> 24;
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR,msg->buf[3]);
-   msg->buf[2]=ModbusConfig.timeout >> 16; 
+   msg->buf[2]=ModbusConfig.timeout >> 16;
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR,msg->buf[2]);
-   msg->buf[1]=ModbusConfig.timeout >> 8; 
+   msg->buf[1]=ModbusConfig.timeout >> 8;
    EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR,msg->buf[1]);    // note little endian PLC data stored as big endian, PLC MSB stored first
-   EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR+1,msg->buf[0]);  // PLC LSB stored last in memory 
+   EEPROMObjectWriteAndUpdate(MB_TIMEOUT_NVRAM_ADDR+1,msg->buf[0]);  // PLC LSB stored last in memory
 	msg->buflen=0;
    MessageObjectFormatSuccessMessage();
    FragMsg=FALSE;
 }
-
+/**
+ * @brief MB_SetSlaveID() Functions to set the slave ID of UART in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetSlaveID(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1771,7 +2294,14 @@ void MB_SetSlaveID(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_SLAVEID_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
-
+/**
+ * @brief MB_SetCoil_StartAddr() Functions to set the coil start address in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetCoil_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1786,7 +2316,14 @@ void MB_SetCoil_StartAddr(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_COILSTART_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
-
+/**
+ * @brief MB_SetCoil_Count() Functions to set the coil count in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetCoil_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1802,7 +2339,14 @@ void MB_SetCoil_Count(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_COILCOUNT_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
-
+/**
+ * @brief MB_SetDiscInput_StartAddr() Functions to set the descrete input register start addressss in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetDiscInput_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1817,7 +2361,14 @@ void MB_SetDiscInput_StartAddr(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_DISCINPUTSTART_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
 }
-
+/**
+ * @brief MB_SetDiscInput_Count() Functions to set the descrete input count in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetDiscInput_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1833,6 +2384,14 @@ void MB_SetDiscInput_Count(MSG  * msg)
 	msg->buflen=0;
 }
 
+/**
+ * @brief MB_SetInReg_StartAddr() Functions to set the Input register start address in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetInReg_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1841,7 +2400,7 @@ void MB_SetInReg_StartAddr(MSG  * msg)
 		 return;
 	 }
 
-   ModbusConfig.InReg_StartAddr = (msg->buf[0] + (msg->buf[1] << 8)); 
+   ModbusConfig.InReg_StartAddr = (msg->buf[0] + (msg->buf[1] << 8));
    //MSB
    EEPROMObjectWriteAndUpdate(MB_INREGSTART_NVRAM_ADDR,msg->buf[1]);
    //LSB
@@ -1849,6 +2408,14 @@ void MB_SetInReg_StartAddr(MSG  * msg)
 	msg->buflen=0;
 }
 
+/**
+ * @brief MB_SetInReg_Count() Functions is used to set the input register count in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetInReg_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1856,7 +2423,7 @@ void MB_SetInReg_Count(MSG  * msg)
 	   	   FragMsg=FALSE;
 		 return;
 	 }
-   ModbusConfig.InReg_Count = (msg->buf[0] +( msg->buf[1] << 8)); 
+   ModbusConfig.InReg_Count = (msg->buf[0] +( msg->buf[1] << 8));
    //MSB
    EEPROMObjectWriteAndUpdate(MB_INREGCOUNT_NVRAM_ADDR,msg->buf[1]);
    //LSB
@@ -1864,6 +2431,14 @@ void MB_SetInReg_Count(MSG  * msg)
 	msg->buflen=0;
 }
 
+/**
+ * @brief MB_SetHoldReg_StartAddr() Functions is used to set the holding register start address in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetHoldReg_StartAddr(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1879,6 +2454,14 @@ void MB_SetHoldReg_StartAddr(MSG  * msg)
 	msg->buflen=0;
 }
 
+/**
+ * @brief MB_SetHoldReg_Count() Functions is used to set the holding register count value in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void MB_SetHoldReg_Count(MSG  * msg)
 {
    if(!DnCheckAttrLen(msg,2,2))
@@ -1893,8 +2476,17 @@ void MB_SetHoldReg_Count(MSG  * msg)
    EEPROMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
    //EEPRFragMsgOMObjectWriteAndUpdate(MB_HOLDREGCOUNT_NVRAM_ADDR+1,msg->buf[0]);
 	msg->buflen=0;
-} 
+}
 
+
+/**
+ * @brief MB_SetHoldReg_Count() Functions is used to set the holding register count value in EEPROM struct.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void Mb_FactoryDefaults(void)
 {
    // default them and save to EEPROM
@@ -1976,7 +2568,7 @@ void Mb_FactoryDefaults(void)
    Write_EE_Byte(MB_HOLDREGSTART_NVRAM_ADDR+1,ModbusConfig.HoldReg_StartAddr & 0xFF);
 
    //MSB first
-   Write_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR,ModbusConfig.HoldReg_Count >> 8); 
+   Write_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR,ModbusConfig.HoldReg_Count >> 8);
    //LSB last
    Write_EE_Byte(MB_HOLDREGCOUNT_NVRAM_ADDR+1,ModbusConfig.HoldReg_Count & 0xFF);
 
@@ -1986,6 +2578,14 @@ void Mb_FactoryDefaults(void)
 //   Write_EE_Byte(102,0x66);  // decimal 102
 }
 
+/**
+ * @brief InitMbParam() Functions to initialize modbus parameters.
+ *
+ *
+ * @return void 					- None
+ * @return void 					- None
+ *
+ */
 void InitMbParam(void)
 {
 	if (Read_EE_Byte(EE_MODBUSMODE_ADDR) != 0x55)
@@ -2077,12 +2677,19 @@ void InitMbParam(void)
 	InitAssembly();
 
 	InitSerialIO();
-	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken 
-	 // out of the InitAssembly() routine. 
+	 // DRC 2/19/2015 Added to bypass call to AssyConfigFunc that was taken
+	 // out of the InitAssembly() routine.
    // DRC 3/10/2015 took out so MB buadrate change takes effect after reset as v1.13 does InitSerialIO();
 }
 
-
+/**
+ * @brief main_port_serial() Functions to process the response of MODBUS slaves and Master frame to connected devices.
+ *
+ *
+ * @return void 					- None
+ * @return void 					- None
+ *
+ */
 void main_port_serial (void)
 {
    unsigned char  *to=mb_data_buffer_out;
@@ -2198,11 +2805,11 @@ void main_port_serial (void)
          MB_Exception = MB_LoadProduceBuffer(MB_Exception);
       }
       else { //////////////// slave mode //////////////////////////
-            
+
          if ( ( checksum_Status ) && ( !MB_Exception ) && ( mb_normalized_rcv_buffer[MB_STATION_ID] == ModbusConfig.slaveID ) ) {
             MB_Exception = checksum_Status;
          }
-        
+
          if ( mb_normalized_rcv_buffer[MB_STATION_ID] != ModbusConfig.slaveID ) {
             mb_data_buffer_len = 0;			// zero buffer size jtm 113012
             // if NOT this units address: stop further processing and exit
@@ -2213,8 +2820,8 @@ void main_port_serial (void)
             return;
          }
          else if ( ( !MB_Exception ) && ( ( mb_normalized_rcv_buffer[MB_FUNC_LOC] == 8 ) && ( !mb_normalized_rcv_buffer[MB_FUNC_LOC + 1] ) && ( !mb_normalized_rcv_buffer[MB_FUNC_LOC + 2] ) ) ) {
-            // process valid function 8 by copying the contents of the 
-            // mb_data_buffer to the mb_data_out_buffer and sending it back to 
+            // process valid function 8 by copying the contents of the
+            // mb_data_buffer to the mb_data_out_buffer and sending it back to
             // the MB device
             int indx = 0;
             for (indx = 0; indx < mb_data_buffer_len; indx++)
@@ -2252,7 +2859,7 @@ void main_port_serial (void)
                {
                   StartMbSend();
                }
-               else 
+               else
                {
                   // error occurred set MB_State to READY_FOR_COMMAND
                   MB_Status = READY_FOR_COMMAND;
@@ -2268,13 +2875,13 @@ void main_port_serial (void)
       }
 
       ProcessMbMessage=0;
-      
+
       if ( ( ModbusConfig.type == MB_MASTERMODE ) || ( MB_Exception ) ) {
          waiting=0;
          MB_Status = READY_FOR_COMMAND;
       }
       else { // ModbusConfig.type == MB_SLAVEMODE
-         // set timeout to wait for response from DN side only if a successful message is 
+         // set timeout to wait for response from DN side only if a successful message is
          // in DN buffer so the PLC will process and send a response
          if ( MB_Status != READY_FOR_COMMAND ) {
             MB_Status = WAITING_FOR_RESPONSE;
@@ -2288,7 +2895,15 @@ void main_port_serial (void)
 #define REQ  1
 #define RSP  0
 
-
+/**
+ * @brief Check_For_Valid_MB_Msg() Functions to check for valid modbus message with buffer and length.  slaves and Master frame to connected devices.
+ *
+ *
+ * @param unsigned char * 							- Pointer to buf of MODBUS Message
+ * @param unsigned char 							- Length of modbus message
+ * @return unsigned char 							- TRUE or FALSE based on error.
+ *
+ */
 unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len)
 {
    uchar err = FALSE;
@@ -2340,6 +2955,15 @@ unsigned char Check_For_Valid_MB_Msg(unsigned char *buf, unsigned char len)
    return err;
 }
 
+
+/**
+ * @brief MB_LoadProduceBuffer() Function helps to load producer buffer with respective response for modbus request.
+ *
+ *
+ * @param unsigned char * 							- MODBUS Error code
+ * @return unsigned char 							- Error code as modbus exception.
+ *
+ */
 unsigned char MB_LoadProduceBuffer(unsigned char error)
 {
    int i,bufcount;
@@ -2443,7 +3067,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       TriggerCOS();  //8-15-2013 DRC not needed for testing
       mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
    }
-   else // in slave mode 
+   else // in slave mode
    {
       if(NoByteSwap == FALSE) CommandFlip(mb_normalized_rcv_buffer);
       mainloopassydata[DNI_MOD_STATUS] = MB_Status;
@@ -2462,7 +3086,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       }
       // Note that address bytes in mb_normalized_rcv_buffer were swapped
       // above so that the normal place holder for the MBC_ADDR_HI_LOC has
-      // the value for DNI_ADDR_L and MBC_ADDR_LO_LOC has value for DNI_ADDR_H 
+      // the value for DNI_ADDR_L and MBC_ADDR_LO_LOC has value for DNI_ADDR_H
       if ( mb_normalized_rcv_buffer_len > MBC_ADDR_HI_LOC ) {
          mainloopassydata[DNI_ADDR_L] = mb_normalized_rcv_buffer[MBC_ADDR_HI_LOC];
       }
@@ -2471,7 +3095,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       }
       // Note that quntity bytes in mb_normalized_rcv_buffer were swapped
       // above so that the normal place holder for the MBC_QUANT_HI_LOC has
-      // the value for DNI_QUANT_L and MBC_QUANT_LO_LOC has value for DNI_QUANT_H 
+      // the value for DNI_QUANT_L and MBC_QUANT_LO_LOC has value for DNI_QUANT_H
       if ( mb_normalized_rcv_buffer_len > MBC_QUANT_HI_LOC ) {
          mainloopassydata[DNI_QUANT_L] = mb_normalized_rcv_buffer[MBC_QUANT_HI_LOC];
       }
@@ -2480,9 +3104,9 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
       }
 
       if ( ( ( mb_normalized_rcv_buffer[MB_FUNC_LOC] == 15 ) || ( mb_normalized_rcv_buffer[MB_FUNC_LOC] == 16 ) ) && ( mb_normalized_rcv_buffer_len > MBC_BYTE_CNT_LOC ) ) {
-            
+
          mainloopassydata[DNI_BYTE_COUNT] = mb_normalized_rcv_buffer[MBC_BYTE_CNT_LOC];
-         
+
          if ( mb_normalized_rcv_buffer_len > MBC_DATA_STRT_LOC ) {
 
             // only allow MaxRxSize (Maximum Input Assembly Data fiels size) amount of data or less
@@ -2501,7 +3125,7 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
                // then set the count to buffer len - 7
                cnt =  mb_normalized_rcv_buffer_len - MBC_DATA_STRT_LOC;
             }
-            
+
             for ( i = 0; i < cnt; i++ ) {
                mainloopassydata[DNI_DATA_STRT + i] = mb_normalized_rcv_buffer[MBC_DATA_STRT_LOC + i];
             }
@@ -2529,8 +3153,8 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
          for ( i = 0; i < cnt; i++ ) {
             mainloopassydata[DNI_BYTE_COUNT + i] = mb_normalized_rcv_buffer[MBC_BYTE_CNT_LOC + i];
          }
-      }  
-      
+      }
+
       size_of_mainloopassydata = bufcount + 3;  // add 3 for status, error code, and txid.
       TriggerCOS();		// trigger the produce  // not needed for test DRC
       mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
@@ -2539,24 +3163,22 @@ unsigned char MB_LoadProduceBuffer(unsigned char error)
    for ( i = size_of_mainloopassydata; i < Ascii.TransmitSize; i++ )
    {
       mainloopassydata[i] = 0x00;
-   }	
+   }
    // make the size the max
    mb_data_buffer_len = 0;				// zero buffer size jtm 4-23-2013
    return(errorcode);
 }
 
-/*-------------------------------------------------*/
-unsigned int GetDataBytes(unsigned int DataQty)
-{
-   unsigned int DataBytes;
-
-   DataBytes = DataQty / 8;
-   if(DataQty % 8) ++DataBytes; 
-   return(DataBytes);
-}
-
 unsigned int  startreg,regqty,regcount,DataQty,DataBytes;
-
+/**
+ * @brief CheckLimitParameters() function to check limit parameters of received message ILX slave mode.
+ *
+ *
+ * @param unsigned char *  					- Pointer to buffer data of command message
+ * @param unsigned char  					- Buf_len buffer length
+ * @return uchar 							- Return the data validation based error.
+ *
+ */
 uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
 {
    // Assumptions:
@@ -2582,7 +3204,7 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
          // Convert message start address and Quantity of Coils hi and low bytes to integer values
          intAddress = (buf[MBC_ADDR_HI_LOC] << 8) + (buf[MBC_ADDR_LO_LOC]);
          intQnty = (buf[MBC_QUANT_HI_LOC] << 8) + (buf[MBC_QUANT_LO_LOC]);
-         
+
          // Is message length correct for this request?
          ByteCnt = intQnty/8;
          if ( ( intQnty % 8 ) != 0 ) {
@@ -2607,7 +3229,7 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
          // Convert message start address and Quantity of Inputs hi and low bytes to integer values
          intAddress = (buf[MBC_ADDR_HI_LOC] << 8) + (buf[MBC_ADDR_LO_LOC]);
          intQnty = (buf[MBC_QUANT_HI_LOC] << 8) + (buf[MBC_QUANT_LO_LOC]);
-         
+
          // Calculate the number of bytes being requested
          ByteCnt = intQnty/8;
          if ( ( intQnty % 8 ) != 0 ) {
@@ -2688,7 +3310,7 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
          // Is output value 0x0000 or 0xFF00?
          else if ( ( intQnty != 0x0000 ) && ( intQnty != 0xFF00 ) )
          {
-            err = INVALID_DATALENGTH_ERROR; 
+            err = INVALID_DATALENGTH_ERROR;
          }
          // Is address ok?
          else if ( ( intAddress < ModbusConfig.Coil_StartAddr ) ||
@@ -2717,8 +3339,8 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
          intAddress = ( buf[MBC_ADDR_HI_LOC] << 8 ) + buf[MBC_ADDR_LO_LOC];
          intQnty = ( buf[MBC_QUANT_HI_LOC] << 8 ) + buf[MBC_QUANT_LO_LOC];
 
-         // caluculate the correct length of the message based on the data and compare with buf_len 
-         // calculate the correct Byte Count value from the quantity of outputs 
+         // caluculate the correct length of the message based on the data and compare with buf_len
+         // calculate the correct Byte Count value from the quantity of outputs
          ByteCnt = intQnty/8;
          if ( intQnty % 8) {
             ByteCnt += 1;
@@ -2737,7 +3359,7 @@ uchar CheckLimitParameters(unsigned char  * buf, unsigned char buf_len)
          {
             err = INVALID_DATALENGTH_ERROR;
          }
-         // Is Starting address ok?  NOTE: if 1st addr is at 0000, max coil addr is at 0000 + max coils - 1 
+         // Is Starting address ok?  NOTE: if 1st addr is at 0000, max coil addr is at 0000 + max coils - 1
          else if ( (intAddress < ModbusConfig.Coil_StartAddr ) ||
                    ( ( intAddress + intQnty ) > ( ModbusConfig.Coil_StartAddr + ModbusConfig.Coil_Count ) ) )
          {

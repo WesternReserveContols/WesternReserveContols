@@ -1,3 +1,12 @@
+/**
+ * @file ee_adr.h
+ * @author Jignesh
+ * @date 25 Jul 2022
+ * @brief This file contains EEPROM addresses for various parameters of MODBUS & Device.
+ *
+ */
+
+
 #ifndef INCLUDE_GAURD_EE_ADDR
 #define INCLUDE_GAURD_EE_ADDR
 #include "dn_eeprm.h"

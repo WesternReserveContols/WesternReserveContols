@@ -1,3 +1,11 @@
+/**
+ * @file main.c
+ * @author Jaignesh
+ * @date 25 Jul 2022
+ * @brief This file contains main.c based initial code of the device.
+ *
+ */
+
 #include "bsp_main.h"
 #include "cmsis_os.h"
 #include "can.h"

@@ -1,3 +1,15 @@
+/**
+ * @file MBPort.c
+ * @author Allen-Bradley Co.
+ * @date 25 Jul 2022
+ * @brief 	This module will 'interface' with the application objects.
+ * 			The idea here is that the DeviceNet portion of the does not
+ * 			have to change when additional objects are added.  This module will
+ * 			act as a multiplexer to that supports multiple application objects
+ * 			where the module type is discovered at powerup.
+ *
+ */
+
 //***********************************************************************
 // Project Name              Slice
 // Module                    DIG_OBJS.C

@@ -1,3 +1,11 @@
+/**
+ * @file assembly.c
+ * @author Jignesh
+ * @date 25 Jul 2022
+ * @brief This file contains assembly level handling related functions and variables.
+ *
+ */
+
 // Assembly.c
 #include <dn_def.h>
 #include <fifo.h>
