@@ -50,7 +50,9 @@
 #define EE_BL_PROD_CODE_HI 0x3A
 
 
-#define EE_END_COMMON_AREA 0x3B // Changing EEPROM address from 0x4F to 0x3B as MODBUS needs more bytes
+#define EE_END_COMMON_AREA_ILX 	0x3B // Changing EEPROM address from 0x4F to 0x3B as MODBUS needs more bytes
+
+#define EE_END_COMMON_AREA	 	0x4F
 
 #ifndef EEPROM_SIZE
 // I changed this from 512 defaultr to 128 default and put ee size heree instead of

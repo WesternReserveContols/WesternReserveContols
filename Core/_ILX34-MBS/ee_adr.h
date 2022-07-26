@@ -10,7 +10,7 @@
 #ifndef INCLUDE_GAURD_EE_ADDR
 #define INCLUDE_GAURD_EE_ADDR
 #include "dn_eeprm.h"
-#define EE_HEAP_START EE_END_COMMON_AREA + 1
+#define EE_HEAP_START EE_END_COMMON_AREA_ILX + 1
 //---------->  EEaddr for JDC Revision 6
 
 #define EE_SERIAL_CHARACTER_FORMAT			EE_HEAP_START+0
