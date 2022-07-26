@@ -122,10 +122,10 @@ SOFT_RESET:
 	/*
 	// Initialize application objects
 	*/
-#ifdef SIM_CONSUME
+// #ifdef SIM_CONSUME
 	InitApplicationObjects ();
 	AppObjectInitialized = TRUE;
-#endif
+// #endif
 
 	// wait in while loop to autobaud and for EnableIn to be enabled
 	while (ABAUD_ENABLED == DeviceNetObjectRAM.bAutoBaud
