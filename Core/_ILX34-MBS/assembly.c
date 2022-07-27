@@ -15,6 +15,7 @@
 #include "ee_adr.h"
 #include <string.h>
 #include "mbport.h"
+#include "dn_cnobj.h"
 
 #define ASSY_PINST		101
 #define ASSY_CINST		102
@@ -495,7 +496,6 @@ unsigned char AssyCheck (MSG *msg)
 
 void InitAssembly(void)
 {
-
   /* DRC 2/12/2015 Replaced the above lines with the following */
   ConsumeAssyNum = Read_EE_Byte(EE_Consume_Path_Id);
   Ascii.ReceiveSize = Read_EE_Byte(EE_RECBUFFER_ADDR);
@@ -503,9 +503,9 @@ void InitAssembly(void)
   Ascii.TransmitSize = Read_EE_Byte(EE_XMITBUFFER_ADDR);
 	/* End of changes */
 
-//	IOCnxnSize[CSI_P_CONS] = Ascii.ReceiveSize;
-//	IOCnxnSize[CSI_P_PROD] = Ascii.TransmitSize;
-//	IOCnxnSize[CSI_C_PROD] = Ascii.TransmitSize;
+  IOCnxnSize[CSI_P_CONS] = Ascii.ReceiveSize;
+  IOCnxnSize[CSI_P_PROD] = Ascii.TransmitSize;
+  IOCnxnSize[CSI_C_PROD] = Ascii.TransmitSize;
 
 }
 
@@ -577,12 +577,12 @@ void SetProduceAssyNum(MSG * msg)
 
 unsigned char CompAssyCSize (void)
 {
-	return TxStrLen + 4;
+	return ComputeIOConsumeSize();
 }
 
 unsigned char CompAssyPSize (void)
 {
-	return 4 + RRecRxStrMaxLen;
+	return ComputeIOProduceSize();
 }
 
 void AssemblyFill (MSG *msg)

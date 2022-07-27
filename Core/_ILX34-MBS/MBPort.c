@@ -226,12 +226,6 @@ const DATA_PARITY MBport_DataParity[9] = {
 	{ 8, ODD },	 // 7O2 - NOTE: needs the 9 bit mode
 };
 
-// Unused code for RS232
-#define P3 2 //TODO GPIO for MODBUS RS485 TXRX pin Jignesh
-signed int TxRx = P3 ^ 2; //Jignesh
-signed int TXPIN = P3 ^ 0; //Jignesh
-signed int RXPIN = P3 ^ 1; //Jignesh
-
 /*------------------------------------------------*/
 uchar CheckLimitParameters(unsigned char  *buf, unsigned char);
 void InitRtuTimeout(void);
@@ -280,7 +274,6 @@ void InitSerialIO(void)
    mb_messagesent = 0;
    Ascii.DataBits = MBport_DataParity[Ascii.Framing].DataBits;
    Ascii.Parity = MBport_DataParity[Ascii.Framing].Parity;
-   TxRx = TxRx_RECV;              //rs485 TX/RX to receive
    mb_data_buffer_len=0;			     //er-- experiment
 
    // Calculate the MaxRxBufSize
@@ -347,8 +340,8 @@ unsigned char ComputeIOConsumeSize(void)
  * @brief ComputeIOProduceSize() It will return the IO produce size.
  *
  *
- * @param void none
- * @return unsigned char Produce size
+ * @param void 					-	- none
+ * @return unsigned char 		   	- Produce size
  *
  */
 unsigned char ComputeIOProduceSize(void)
@@ -360,9 +353,9 @@ unsigned char ComputeIOProduceSize(void)
  * @brief UpdateCRC() It will calculate the CRC value for new data.
  *
  *
- * @param BYTE data
- * @param WORD CRC value
- * @return WORD final CRC value
+ * @param BYTE 						- data
+ * @param WORD 						- CRC value
+ * @return WORD 					- final CRC value
  *
  */
 WORD UpdateCRC(BYTE mydata,WORD crc)
@@ -381,9 +374,9 @@ WORD UpdateCRC(BYTE mydata,WORD crc)
  * @brief bin_char() It will convert the ASCII characters to binary value.
  *
  *
- * @param BYTE ASCII higher value
- * @param BYTE ASCII lower value
- * @return BYTE binary value
+ * @param BYTE 							- ASCII higher value
+ * @param BYTE 							- ASCII lower value
+ * @return BYTE 						- binary value
  *
  */
 BYTE bin_char(BYTE char_hi,BYTE char_lo)  //Convert 2 ASCII characters to binary
@@ -408,8 +401,8 @@ BYTE bin_char(BYTE char_hi,BYTE char_lo)  //Convert 2 ASCII characters to binary
  * @brief HexToBin() It will calculate and return hex value to bin value.
  *
  *
- * @param BYTE * data pointer
- * @return BYTE final CRC value
+ * @param BYTE * 						- data pointer
+ * @return BYTE 						- final CRC value
  *
  */
 BYTE HexToBin(BYTE *Bytestr)
@@ -1257,7 +1250,7 @@ void Serial_TX_ISR(void)
    if(mb_data_buffer_out_len)
    {
       mb_data_buffer_out_len--;
-      TxRx = TxRx_XMIT; //set 485 chip to transmit
+      IO_SET_SerialTxRx (TxRx_XMIT); //set 485 chip to transmit
 
       XmitChar(*(mb_data_ptr++));
 
@@ -1278,7 +1271,7 @@ void Serial_TX_ISR(void)
          waiting=0;  // tell the system we are not waiting for a response anymore.
          MB_Status = READY_FOR_COMMAND;
       }
-      TxRx = TxRx_RECV; //set 485 chip to receive
+      IO_SET_SerialTxRx (TxRx_RECV); //set 485 chip to receive
       //we are done transmiting the message,
       if(!dest_addr) waiting=0;//broadcast message has no response
       else Start_Timeout();
@@ -1708,7 +1701,7 @@ void StartMbSend(void)
       mb_data_ptr=mb_data_buffer_out;
       mb_data_buffer_out_len--;
       Transmitting=1;
-      TxRx = TxRx_XMIT; //set 485 chip to transmit
+      IO_SET_SerialTxRx (TxRx_XMIT); //set 485 chip to transmit
       XmitChar(*(mb_data_ptr++));
    }
    else Transmitting=0;
@@ -2574,8 +2567,7 @@ void Mb_FactoryDefaults(void)
 
    Write_EE_Byte(EE_Produce_Path_Id,0x65);  // decimal 101
    Write_EE_Byte(EE_Consume_Path_Id,0x66);  // decimal 102
-//   Write_EE_Byte(101,0x65);  // decimal 101
-//   Write_EE_Byte(102,0x66);  // decimal 102
+
 }
 
 /**
