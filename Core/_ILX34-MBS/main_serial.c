@@ -53,6 +53,11 @@ void STARTUP1 (void);
 
 void main_serial (void)
 {
+#ifdef Rick_TEST
+	int qbd;
+	qbd = 2;
+#endif
+
 SOFT_RESET:
 
 	/*
@@ -118,15 +123,6 @@ SOFT_RESET:
 
 	KICK_WDOG ();
 
-
-	/*
-	// Initialize application objects
-	*/
-// #ifdef SIM_CONSUME
-	InitApplicationObjects ();
-	AppObjectInitialized = TRUE;
-// #endif
-
 	// wait in while loop to autobaud and for EnableIn to be enabled
 	while (ABAUD_ENABLED == DeviceNetObjectRAM.bAutoBaud
 		   || (FilterBusEnInPin != 0)) // don't send dupmac request until bus_en goes low
@@ -143,7 +139,11 @@ SOFT_RESET:
 	if (MessageObjectRAM.bCommParamChange)
 		goto PRE_SOFT_RESET;
 
-
+	/*
+	// Initialize application objects
+	*/
+	InitApplicationObjects ();
+	AppObjectInitialized = TRUE;
 
 DO_DUPMACS:
 	if (DUPLICATEMACFAIL != UIObjectRAM.cHealthState)

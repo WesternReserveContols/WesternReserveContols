@@ -569,12 +569,24 @@ void SetProduceAssyNum(MSG * msg)
 
 unsigned char CompAssyCSize (void)
 {
-	return TxStrLen + 4;
+#ifdef Rick_TEST
+	return ComputeIOConsumeSize();
+	  // return TxStrLen + 4;
+#else
+	  return TxStrLen + 4;
+#endif
+
 }
 
 unsigned char CompAssyPSize (void)
 {
-	return 4 + RRecRxStrMaxLen;
+#ifdef Rick_TEST
+	 // return ComputeIOConsumeSize();
+	 return 30;
+#else
+	 return 4 + RRecRxStrMaxLen;
+#endif
+
 }
 
 void AssemblyFill (MSG *msg)
