@@ -581,8 +581,8 @@ unsigned char CompAssyCSize (void)
 unsigned char CompAssyPSize (void)
 {
 #ifdef Rick_TEST
-	 // return ComputeIOConsumeSize();
-	 return 30;
+	 return ComputeIOProduceSize();
+	 //return 30;
 #else
 	 return 4 + RRecRxStrMaxLen;
 #endif

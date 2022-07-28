@@ -254,7 +254,12 @@ void InitSerialIO(void)
    mb_messagesent = 0;
    Ascii.DataBits = MBport_DataParity[Ascii.Framing].DataBits;
    Ascii.Parity = MBport_DataParity[Ascii.Framing].Parity;
-   TxRx = TxRx_RECV;              //rs485 TX/RX to receive
+#ifdef Rick_TEST
+      IO_SET_SerialTxRx (TxRx_RECV);
+#else
+      TxRx = TxRx_RECV;              //rs485 TX/RX to receive
+#endif
+
    mb_data_buffer_len=0;			     //er-- experiment
 
    // Calculate the MaxRxBufSize
@@ -970,7 +975,12 @@ void Serial_TX_ISR(void)
    if(mb_data_buffer_out_len)
    {
       mb_data_buffer_out_len--;
+
+#ifdef Rick_TEST
+      IO_SET_SerialTxRx (TxRx_XMIT);
+#else
       TxRx = TxRx_XMIT; //set 485 chip to transmit
+#endif
 
       XmitChar(*(mb_data_ptr++));
 
@@ -991,7 +1001,12 @@ void Serial_TX_ISR(void)
          waiting=0;  // tell the system we are not waiting for a response anymore.         
          MB_Status = READY_FOR_COMMAND;
       }
+#ifdef Rick_TEST
+      IO_SET_SerialTxRx (TxRx_RECV);
+#else
       TxRx = TxRx_RECV; //set 485 chip to receive
+#endif
+
       //we are done transmiting the message,
       if(!dest_addr) waiting=0;//broadcast message has no response
       else Start_Timeout();
@@ -1398,7 +1413,11 @@ void StartMbSend(void)
       mb_data_ptr=mb_data_buffer_out;
       mb_data_buffer_out_len--;
       Transmitting=1;
+#ifdef Rick_TEST
+      IO_SET_SerialTxRx (TxRx_XMIT);
+#else
       TxRx = TxRx_XMIT; //set 485 chip to transmit
+#endif
       XmitChar(*(mb_data_ptr++));
    }
    else Transmitting=0;
