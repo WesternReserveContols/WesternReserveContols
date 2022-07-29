@@ -143,7 +143,13 @@ SOFT_RESET:
 	if (MessageObjectRAM.bCommParamChange)
 		goto PRE_SOFT_RESET;
 
-
+#ifndef SIM_CONSUME
+	/*
+	// Initialize application objects
+	*/
+	InitApplicationObjects ();
+	AppObjectInitialized = TRUE;
+#endif
 
 DO_DUPMACS:
 	if (DUPLICATEMACFAIL != UIObjectRAM.cHealthState)

@@ -151,7 +151,7 @@ int Transmitting=0;
 int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
-unsigned int BaudDiv[8] = { BAUD96, BAUD12, BAUD24, BAUD48, BAUD19, BAUD38 };
+unsigned int BaudDiv[8] = { BAUD19, BAUD12, BAUD24, BAUD48, BAUD96, BAUD38 };
 
 BYTE recieve_status;//=0;
 BYTE transmit_record_counter;//=0;
@@ -274,6 +274,7 @@ void InitSerialIO(void)
    mb_messagesent = 0;
    Ascii.DataBits = MBport_DataParity[Ascii.Framing].DataBits;
    Ascii.Parity = MBport_DataParity[Ascii.Framing].Parity;
+   IO_SET_SerialTxRx (TxRx_RECV);
    mb_data_buffer_len=0;			     //er-- experiment
 
    // Calculate the MaxRxBufSize

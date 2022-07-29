@@ -61,12 +61,30 @@ void SetConsumeAssyNum(MSG * msg);
 void GetProduceAssyNum(MSG * msg);
 void GetConsumeAssyNum(MSG  * msg);
 
+
 unsigned char ConsumeAssyNum,ProduceAssyNum;
 extern unsigned char MaxRxSize;
 
 
+/**
+ * @brief AssyPFunc() Function to get the assembly produce message based parameters.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void AssyPFunc (MSG *msg)
 {
+	  unsigned char * prodbuf=msg->buf;
+
+	  *(prodbuf)= 0;
+	  *(prodbuf+1)= RRecStatus|TxSts|Ascii.Status;
+	  //produce the data
+	  AssyPMsg.class=0x04;
+	  AssyPMsg.buf=prodbuf;
+
+#if 0
 	unsigned char *prodbuf = msg->buf;
 	// add the record counter if we want to
 	msg->buflen = 0;
@@ -94,12 +112,21 @@ void AssyPFunc (MSG *msg)
 	AssyPMsg.buflen = 0;
 	RRecProtGetRxStr (&AssyPMsg); // returns a pointer, we need to copy it
 	msg->buflen += AssyPMsg.buflen;
+#endif
 }
 // these need to be because they are passed in the msgbuf!
 unsigned char		 new_txrec_num;
 unsigned char		 new_rxrec_num;
 extern unsigned char RRecPadMode;
 unsigned char		 CompAssyCSize (void);
+/**
+ * @brief AssyCFunc() Function to get the assembly consume message based parameters.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void				 AssyCFunc (MSG *msg)
 {
 	// get the record number
@@ -288,7 +315,14 @@ void SRecProtSetMode (MSG *msg);
 	*(ptr++)=buf[0];*(ptr++)=buf[1];len=len+2;
 #define AFTER_CONFIG_MESSAGE_4 if(g_status)return;*(ptr++)=buf[0];*(ptr++)=buf[1];*(ptr++)=buf[2];*(ptr++)=buf[3];len=len+4;
 
-
+/**
+ * @brief AssyConfigFunc() Function to get and set the assembly configurations.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return void 					- None
+ *
+ */
 void AssyConfigFunc (MSG *msg)
 {
 	MSG ConfigMsg;
@@ -444,6 +478,14 @@ void AssyConfigFunc (MSG *msg)
 	  InitSerialIO();
 }
 
+/**
+ * @brief CheckMsgLen() Function to check the assembly message length with respect to high and low lengggth.
+ *
+ *
+ * @param MSG * 					- Pointer to MSG struct data
+ * @return bool 					- Return 1 success OR 0 fail
+ *
+ */
 bool CheckMsgLen (MSG *msg, unsigned char lo, unsigned char hi)
 {
 	if (msg->buflen < lo)
@@ -459,6 +501,14 @@ bool CheckMsgLen (MSG *msg, unsigned char lo, unsigned char hi)
 	return 1;
 }
 
+/**
+ * @brief AssyCheck() Function to check the assembly message type and retrun accordingly.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return unsigned charr 					- Return the type of assembly message type
+ *
+ */
 unsigned char AssyCheck (MSG *msg)
 {
 	register unsigned char tmp;
@@ -494,6 +544,14 @@ unsigned char AssyCheck (MSG *msg)
 	return tmp;
 }
 
+/**
+ * @brief InitAssembly() Function to init the assembly function including getting EEPROM stored configurations.
+ *
+ *
+ * @param void  							- None
+ * @return void 							- None
+ *
+ */
 void InitAssembly(void)
 {
   /* DRC 2/12/2015 Replaced the above lines with the following */
@@ -509,6 +567,14 @@ void InitAssembly(void)
 
 }
 
+/**
+ * @brief SetConsumeAssyNum() Function to set consume assembly receiver size based on assy config type.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void SetConsumeAssyNum(MSG * msg)
 {
   if(!DnCheckAttrLen(msg,1,1))return;
@@ -540,6 +606,14 @@ void SetConsumeAssyNum(MSG * msg)
   msg->buflen=0;
 }
 
+/**
+ * @brief SetProduceAssyNum() Function to set produce assembly transmit size based on assy config type.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void SetProduceAssyNum(MSG * msg)
 {
   if(!DnCheckAttrLen(msg,1,1))return;
@@ -574,17 +648,40 @@ void SetProduceAssyNum(MSG * msg)
   msg->buflen=0;
 }
 
-
+/**
+ * @brief CompAssyCSize() Function to get the consume message size.
+ *
+ *
+ * @param void 		 						- None
+ * @return unsigned char 		 			- value of the consume size
+ *
+ */
 unsigned char CompAssyCSize (void)
 {
 	return ComputeIOConsumeSize();
 }
 
+/**
+ * @brief CompAssyPSize() Function to get the produce message size.
+ *
+ *
+ * @param void 		 						- None
+ * @return unsigned char 		 			- value of the produce size
+ *
+ */
 unsigned char CompAssyPSize (void)
 {
 	return ComputeIOProduceSize();
 }
 
+/**
+ * @brief AssemblyFill() Function to fill the assembly message.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void AssemblyFill (MSG *msg)
 {
 	// I have half a mind to pop crap off the stack
@@ -597,6 +694,14 @@ void AssemblyFill (MSG *msg)
 	}
 }
 
+/**
+ * @brief AssemblyFunc() Function to check assembly message and execute producer & consumer assembly message.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void *		 					- Pointer to message updated buffer
+ *
+ */
 void *AssemblyFunc (MSG *msg)
 {
 	unsigned char tmp;
@@ -625,19 +730,40 @@ void *AssemblyFunc (MSG *msg)
 	}
 	return NULL;
 }
-
+/**
+ * @brief GetConsumeAssyNum() Function to get the consume assembly number.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void GetConsumeAssyNum(MSG  * msg)
 {
 	msg->buf[0] = ConsumeAssyNum;
 	msg->buflen++;
 }
-
+/**
+ * @brief GetProduceAssyNum() Function to get the produce assembly number.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void GetProduceAssyNum(MSG * msg)
 {
 	msg->buf[0] = ProduceAssyNum;
 	msg->buflen++;
 }
-
+/**
+ * @brief AssyGetConsumeSize() Function to get the  consume assembly message size.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void AssyGetConsumeSize (MSG *msg)
 {
 	if (!DnCheckAttrLen (msg, 0, 0))
@@ -645,7 +771,14 @@ void AssyGetConsumeSize (MSG *msg)
 	msg->buf[0] = CompAssyCSize ();
 	msg->buflen = 1;
 }
-
+/**
+ * @brief AssyGetProduceSize() Function to get the produce assembly message size.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void AssyGetProduceSize (MSG *msg)
 {
 	if (!DnCheckAttrLen (msg, 0, 0))
@@ -654,7 +787,14 @@ void AssyGetProduceSize (MSG *msg)
 	msg->buflen = 1;
 }
 
-// stati not yet done
+/**
+ * @brief AssyGetComboStatus() Function to get the combo assembly status.
+ *
+ *
+ * @param MSG * 							- Pointer to MSG struct data
+ * @return void 		 					- None
+ *
+ */
 void AssyGetComboStatus (MSG *msg)
 {
 	if (!DnCheckAttrLen (msg, 0, 0))

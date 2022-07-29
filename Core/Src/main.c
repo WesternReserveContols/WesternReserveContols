@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @author Jaignesh
+ * @author Jignesh
  * @date 25 Jul 2022
  * @brief This file contains main.c based initial code of the device.
  *
