@@ -162,8 +162,12 @@ int Transmitting=0;
 int ProcessMbMessage=0;
 MB_CONFIG	ModbusConfig;
 unsigned char parityChkRslt;
-
+#ifdef Rick_TEST
+unsigned int BaudDiv[8] = { BAUD19, BAUD12, BAUD24, BAUD48, BAUD96, BAUD38 };
+#
+#else
 unsigned int BaudDiv[8] = { BAUD96, BAUD12, BAUD24, BAUD48, BAUD19, BAUD38 };
+#endif
 
 MODBUS_ATTRIB ModAttrib = {
    0,
