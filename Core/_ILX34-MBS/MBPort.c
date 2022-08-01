@@ -1274,6 +1274,16 @@ void Serial_RX_ISR(void)
    //Jignesh RI=0;
 }
 
+/***************************************************************
+ * MBLoad(*src)
+ *
+ * This copies the contents pointed to by src to the mb_data_buffer_out;
+ * This is the message that goes out the UART as Modbus message on the wire.
+ *
+ * mainloopassydata  contains the reply sent to the Producer for PLC Input consumption.
+ *
+ ******************************************************************** */
+
 int MBLoad(unsigned char  *src)
 {
    unsigned char srclen = 0;
@@ -1514,7 +1524,7 @@ TESTSKIP:
       else { // MB_SLAVEMODE
          MB_Status = PROCESSING_RESPONSE;
       }
-      TriggerCOS();
+      TriggerCOS();  // Rick_TEST is this in the wrong place-- trigger before buffer is loaded????
       // reset MB_Exception to 0 every time a message comes in from DN
       MB_Exception = 0;
 

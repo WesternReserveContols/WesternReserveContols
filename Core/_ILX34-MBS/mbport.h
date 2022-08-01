@@ -116,6 +116,17 @@
 #define MBM_RESERVED_BIT_7 0x80    // reserved bit 7
 
 
+#ifdef Rick_TEST
+
+// copied from status.h in Legacy code
+#define NOT_READY             0
+#define READY_FOR_COMMAND     1
+#define PROCESSING_COMMAND    2
+#define WAITING_FOR_RESPONSE  3
+#define PROCESSING_RESPONSE   4
+#else
+
+
 enum mb_status_enum_t
 {
 	READY_FOR_COMMAND = 1,
@@ -123,6 +134,8 @@ enum mb_status_enum_t
 	PROCESSING_COMMAND,
 	PROCESSING_RESPONSE,
 };
+
+#endif
 
 typedef struct
 {

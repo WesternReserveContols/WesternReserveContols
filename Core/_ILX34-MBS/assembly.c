@@ -56,6 +56,8 @@ unsigned char ConsumeAssyNum,ProduceAssyNum;
 extern unsigned char MaxRxSize;
 
 
+
+
 void AssyPFunc (MSG *msg)
 {
 	unsigned char *prodbuf = msg->buf;

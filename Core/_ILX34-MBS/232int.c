@@ -211,6 +211,11 @@ void AppObjectMonitorIO (void) //?
 		MSG msg;
 		new_produce_data_avail = 0;
 		assymainprocnotbusy	   = 0;
+
+#ifdef Rick_TEST
+		mainloopassydata[1] ++;
+#endif
+
 		msg.buf				   = mainloopassydata;
 		AssyPFunc (&msg);
 		size_of_mainloopassydata = msg.buflen;
@@ -322,6 +327,16 @@ void AppObjectFillPollData (void)
 		while(len--) *(dest++)=*(src++);
 		*/
 		// copy it up
+
+#ifdef Rick_TEST
+		//Just fill in some Poll data
+		static unsigned char a,b;
+		a++;
+		b+=2;
+		mainloopassydata[0]=MB_Status;
+		mainloopassydata[1]=a;
+		mainloopassydata[2]=b;
+#endif
 		xdata_memcpy (P_OutMsgBuffer, mainloopassydata, P_OutMsgBufferSize = size_of_mainloopassydata);
 		polldatachanged = 0;
 	}
